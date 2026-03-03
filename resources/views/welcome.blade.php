@@ -7,6 +7,7 @@
 --}}
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,7 +16,9 @@
 
     {{-- Fonts --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
 
     @livewireStyles
 
@@ -24,32 +27,40 @@
            TOKENS & VARIABLES
         ═══════════════════════════════════════════════════ */
         :root {
-            --felt:       #0d4a2b;
-            --felt-mid:   #0f5c33;
+            --felt: #0d4a2b;
+            --felt-mid: #0f5c33;
             --felt-light: #1a7a45;
-            --neon:       #39ff8f;
-            --neon-dim:   #22cc68;
-            --neon-glow:  rgba(57,255,143,0.35);
-            --amber:      #ffb830;
-            --amber-glow: rgba(255,184,48,0.35);
-            --red:        #ff4444;
-            --red-glow:   rgba(255,68,68,0.35);
-            --bg:         #080e0a;
-            --bg-card:    #0e1a12;
-            --bg-card2:   #111f16;
-            --border:     rgba(57,255,143,0.12);
-            --border-mid: rgba(57,255,143,0.22);
-            --text:       #e8f5ed;
-            --text-dim:   #8aab95;
+            --neon: #39ff8f;
+            --neon-dim: #22cc68;
+            --neon-glow: rgba(57, 255, 143, 0.35);
+            --amber: #ffb830;
+            --amber-glow: rgba(255, 184, 48, 0.35);
+            --red: #ff4444;
+            --red-glow: rgba(255, 68, 68, 0.35);
+            --bg: #080e0a;
+            --bg-card: #0e1a12;
+            --bg-card2: #111f16;
+            --border: rgba(57, 255, 143, 0.12);
+            --border-mid: rgba(57, 255, 143, 0.22);
+            --text: #e8f5ed;
+            --text-dim: #8aab95;
             --text-muted: #4d7060;
         }
 
         /* ═══════════════════════════════════════════════════
            RESET & BASE
         ═══════════════════════════════════════════════════ */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-        html { scroll-behavior: smooth; }
+        html {
+            scroll-behavior: smooth;
+        }
 
         body {
             background: var(--bg);
@@ -76,14 +87,16 @@
         ═══════════════════════════════════════════════════ */
         nav {
             position: fixed;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             z-index: 100;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 2.5rem;
             height: 64px;
-            background: rgba(8,14,10,0.85);
+            background: rgba(8, 14, 10, 0.85);
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border);
         }
@@ -97,7 +110,9 @@
             text-decoration: none;
         }
 
-        .nav-logo span { color: var(--text-dim); }
+        .nav-logo span {
+            color: var(--text-dim);
+        }
 
         .nav-links {
             display: flex;
@@ -116,7 +131,9 @@
             transition: color 0.2s;
         }
 
-        .nav-links a:hover { color: var(--neon); }
+        .nav-links a:hover {
+            color: var(--neon);
+        }
 
         .nav-cta {
             background: transparent;
@@ -129,7 +146,7 @@
         }
 
         .nav-cta:hover {
-            background: rgba(57,255,143,0.1) !important;
+            background: rgba(57, 255, 143, 0.1) !important;
             box-shadow: 0 0 20px var(--neon-glow) !important;
         }
 
@@ -157,7 +174,7 @@
             transform: translate(-50%, -50%);
             width: 700px;
             height: 400px;
-            background: radial-gradient(ellipse, rgba(13,74,43,0.7) 0%, transparent 70%);
+            background: radial-gradient(ellipse, rgba(13, 74, 43, 0.7) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -169,24 +186,33 @@
             transform: translateX(-50%);
             width: 900px;
             height: 300px;
-            border: 2px solid rgba(57,255,143,0.08);
+            border: 2px solid rgba(57, 255, 143, 0.08);
             border-radius: 48px;
-            background: linear-gradient(180deg, rgba(13,74,43,0.15) 0%, transparent 100%);
+            background: linear-gradient(180deg, rgba(13, 74, 43, 0.15) 0%, transparent 100%);
             pointer-events: none;
         }
 
         /* Pocket circles */
-        .hero-felt::before, .hero-felt::after {
+        .hero-felt::before,
+        .hero-felt::after {
             content: '';
             position: absolute;
             width: 28px;
             height: 28px;
             border-radius: 50%;
             background: var(--bg);
-            border: 1.5px solid rgba(57,255,143,0.15);
+            border: 1.5px solid rgba(57, 255, 143, 0.15);
         }
-        .hero-felt::before { top: -14px; left: 40px; }
-        .hero-felt::after  { top: -14px; right: 40px; }
+
+        .hero-felt::before {
+            top: -14px;
+            left: 40px;
+        }
+
+        .hero-felt::after {
+            top: -14px;
+            right: 40px;
+        }
 
         .hero-eyebrow {
             font-family: 'JetBrains Mono', monospace;
@@ -214,7 +240,7 @@
             color: var(--neon);
             text-shadow:
                 0 0 30px var(--neon-glow),
-                0 0 60px rgba(57,255,143,0.2);
+                0 0 60px rgba(57, 255, 143, 0.2);
         }
 
         .hero-subtitle {
@@ -253,7 +279,7 @@
         }
 
         .btn-primary:hover {
-            box-shadow: 0 0 30px var(--neon-glow), 0 4px 20px rgba(0,0,0,0.4);
+            box-shadow: 0 0 30px var(--neon-glow), 0 4px 20px rgba(0, 0, 0, 0.4);
             transform: translateY(-2px);
         }
 
@@ -432,43 +458,54 @@
 
         /* Status-based card styles */
         .meja-card.available {
-            border-color: rgba(57,255,143,0.2);
+            border-color: rgba(57, 255, 143, 0.2);
         }
+
         .meja-card.available:hover {
             border-color: var(--neon);
-            box-shadow: 0 8px 32px rgba(57,255,143,0.12), 0 0 0 1px rgba(57,255,143,0.1);
+            box-shadow: 0 8px 32px rgba(57, 255, 143, 0.12), 0 0 0 1px rgba(57, 255, 143, 0.1);
         }
+
         .meja-card.available::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--neon), transparent);
         }
 
         .meja-card.occupied {
-            border-color: rgba(255,68,68,0.2);
+            border-color: rgba(255, 68, 68, 0.2);
         }
+
         .meja-card.occupied:hover {
             border-color: var(--red);
-            box-shadow: 0 8px 32px rgba(255,68,68,0.1);
+            box-shadow: 0 8px 32px rgba(255, 68, 68, 0.1);
         }
+
         .meja-card.occupied::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--red), transparent);
         }
 
         .meja-card.maintenance {
-            border-color: rgba(255,184,48,0.2);
+            border-color: rgba(255, 184, 48, 0.2);
             opacity: 0.7;
         }
+
         .meja-card.maintenance::before {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--amber), transparent);
         }
@@ -478,7 +515,7 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: radial-gradient(ellipse at top left, rgba(57,255,143,0.03) 0%, transparent 60%);
+            background: radial-gradient(ellipse at top left, rgba(57, 255, 143, 0.03) 0%, transparent 60%);
             pointer-events: none;
         }
 
@@ -511,21 +548,21 @@
         }
 
         .status-pill.available {
-            background: rgba(57,255,143,0.12);
+            background: rgba(57, 255, 143, 0.12);
             color: var(--neon);
-            border: 1px solid rgba(57,255,143,0.25);
+            border: 1px solid rgba(57, 255, 143, 0.25);
         }
 
         .status-pill.occupied {
-            background: rgba(255,68,68,0.12);
+            background: rgba(255, 68, 68, 0.12);
             color: var(--red);
-            border: 1px solid rgba(255,68,68,0.25);
+            border: 1px solid rgba(255, 68, 68, 0.25);
         }
 
         .status-pill.maintenance {
-            background: rgba(255,184,48,0.12);
+            background: rgba(255, 184, 48, 0.12);
             color: var(--amber);
-            border: 1px solid rgba(255,184,48,0.25);
+            border: 1px solid rgba(255, 184, 48, 0.25);
         }
 
         .pill-dot {
@@ -562,8 +599,8 @@
 
         /* Billing info block (hanya muncul jika occupied) */
         .billing-info {
-            background: rgba(255,68,68,0.06);
-            border: 1px solid rgba(255,68,68,0.15);
+            background: rgba(255, 68, 68, 0.06);
+            border: 1px solid rgba(255, 68, 68, 0.15);
             border-radius: 8px;
             padding: 1rem;
         }
@@ -589,7 +626,7 @@
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--red);
-            text-shadow: 0 0 15px rgba(255,68,68,0.4);
+            text-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
             letter-spacing: 0.05em;
         }
 
@@ -606,7 +643,9 @@
             color: var(--amber);
         }
 
-        .billing-countdown-icon { font-size: 0.85rem; }
+        .billing-countdown-icon {
+            font-size: 0.85rem;
+        }
 
         /* Progress bar waktu berjalan */
         .time-progress {
@@ -615,7 +654,7 @@
 
         .time-progress-bar {
             height: 3px;
-            background: rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255, 0.06);
             border-radius: 100px;
             overflow: hidden;
         }
@@ -643,8 +682,8 @@
             align-items: center;
             gap: 0.75rem;
             padding: 0.875rem 1rem;
-            background: rgba(57,255,143,0.05);
-            border: 1px solid rgba(57,255,143,0.12);
+            background: rgba(57, 255, 143, 0.05);
+            border: 1px solid rgba(57, 255, 143, 0.12);
             border-radius: 8px;
         }
 
@@ -670,8 +709,8 @@
             align-items: center;
             gap: 0.75rem;
             padding: 0.875rem 1rem;
-            background: rgba(255,184,48,0.05);
-            border: 1px solid rgba(255,184,48,0.12);
+            background: rgba(255, 184, 48, 0.05);
+            border: 1px solid rgba(255, 184, 48, 0.12);
             border-radius: 8px;
         }
 
@@ -687,7 +726,7 @@
             margin-top: 1rem;
             padding: 0.65rem;
             background: transparent;
-            border: 1px solid rgba(57,255,143,0.2);
+            border: 1px solid rgba(57, 255, 143, 0.2);
             border-radius: 6px;
             color: var(--neon);
             font-family: 'DM Sans', sans-serif;
@@ -702,7 +741,7 @@
         }
 
         .card-book-btn:hover {
-            background: rgba(57,255,143,0.1);
+            background: rgba(57, 255, 143, 0.1);
             border-color: var(--neon);
             box-shadow: 0 0 16px var(--neon-glow);
         }
@@ -731,9 +770,20 @@
             border-radius: 50%;
         }
 
-        .legend-dot.available    { background: var(--neon); box-shadow: 0 0 6px var(--neon-glow); }
-        .legend-dot.occupied     { background: var(--red);  box-shadow: 0 0 6px var(--red-glow); }
-        .legend-dot.maintenance  { background: var(--amber);box-shadow: 0 0 6px var(--amber-glow); }
+        .legend-dot.available {
+            background: var(--neon);
+            box-shadow: 0 0 6px var(--neon-glow);
+        }
+
+        .legend-dot.occupied {
+            background: var(--red);
+            box-shadow: 0 0 6px var(--red-glow);
+        }
+
+        .legend-dot.maintenance {
+            background: var(--amber);
+            box-shadow: 0 0 6px var(--amber-glow);
+        }
 
         /* ═══════════════════════════════════════════════════
            PACKAGES SECTION
@@ -765,8 +815,8 @@
         }
 
         .package-card.featured {
-            border-color: rgba(57,255,143,0.35);
-            background: linear-gradient(160deg, rgba(57,255,143,0.05) 0%, var(--bg) 100%);
+            border-color: rgba(57, 255, 143, 0.35);
+            background: linear-gradient(160deg, rgba(57, 255, 143, 0.05) 0%, var(--bg) 100%);
             position: relative;
         }
 
@@ -827,7 +877,9 @@
         /* ═══════════════════════════════════════════════════
            HOW IT WORKS
         ═══════════════════════════════════════════════════ */
-        #cara-booking { background: var(--bg); }
+        #cara-booking {
+            background: var(--bg);
+        }
 
         .steps-grid {
             display: grid;
@@ -858,7 +910,7 @@
         .step-number {
             font-family: 'Bebas Neue', sans-serif;
             font-size: 3rem;
-            color: rgba(57,255,143,0.15);
+            color: rgba(57, 255, 143, 0.15);
             line-height: 1;
             margin-bottom: 0.5rem;
         }
@@ -899,7 +951,10 @@
             margin-bottom: 1rem;
         }
 
-        .cta-title .accent { color: var(--neon); text-shadow: 0 0 30px var(--neon-glow); }
+        .cta-title .accent {
+            color: var(--neon);
+            text-shadow: 0 0 30px var(--neon-glow);
+        }
 
         /* ═══════════════════════════════════════════════════
            FOOTER
@@ -930,18 +985,43 @@
            ANIMATIONS
         ═══════════════════════════════════════════════════ */
         @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes livePulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50%       { opacity: 0.5; transform: scale(0.8); }
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
         }
 
         @keyframes scrollPulse {
-            0%, 100% { transform: scaleY(1); opacity: 1; }
-            50%       { transform: scaleY(0.6); opacity: 0.4; }
+
+            0%,
+            100% {
+                transform: scaleY(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scaleY(0.6);
+                opacity: 0.4;
+            }
         }
 
         /* Refresh flash (dipicu saat data di-refresh) */
@@ -950,254 +1030,297 @@
         }
 
         @keyframes flashBorder {
-            0%   { box-shadow: 0 0 0 0 rgba(57,255,143,0.0); }
-            50%  { box-shadow: 0 0 0 3px rgba(57,255,143,0.3); }
-            100% { box-shadow: 0 0 0 0 rgba(57,255,143,0.0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(57, 255, 143, 0.0);
+            }
+
+            50% {
+                box-shadow: 0 0 0 3px rgba(57, 255, 143, 0.3);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(57, 255, 143, 0.0);
+            }
         }
 
         /* ═══════════════════════════════════════════════════
            RESPONSIVE
         ═══════════════════════════════════════════════════ */
         @media (max-width: 768px) {
-            nav { padding: 0 1.25rem; }
-            .nav-links { display: none; }
-            .stats-bar { gap: 2rem; flex-wrap: wrap; padding: 1.5rem; }
-            .status-header { flex-direction: column; align-items: flex-start; }
-            .hero-felt { display: none; }
-            .steps-grid::before { display: none; }
+            nav {
+                padding: 0 1.25rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .stats-bar {
+                gap: 2rem;
+                flex-wrap: wrap;
+                padding: 1.5rem;
+            }
+
+            .status-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .hero-felt {
+                display: none;
+            }
+
+            .steps-grid::before {
+                display: none;
+            }
         }
     </style>
 </head>
+
 <body>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      NAVIGATION
 ══════════════════════════════════════════════════ --}}
-<nav>
-    <a href="/" class="nav-logo">BILLIARD<span>HALL</span></a>
-    <ul class="nav-links">
-        <li><a href="#status-meja">Status Meja</a></li>
-        <li><a href="#paket">Paket</a></li>
-        <li><a href="#cara-booking">Cara Booking</a></li>
-        @auth
-            @role('superadmin')
-                <li><a href="{{ route('admin.dashboard') }}" class="nav-cta">Dashboard</a></li>
-            @endrole
-            @role('kasir')
-                <li><a href="{{ route('kasir.dashboard') }}" class="nav-cta">Dashboard Kasir</a></li>
-            @endrole
-            @role('pelanggan')
-                <li><a href="{{ route('pelanggan.dashboard') }}" class="nav-cta">My Dashboard</a></li>
-            @endrole
-        @else
-            <li><a href="{{ route('login') }}" class="nav-cta">Login / Booking</a></li>
-        @endauth
-    </ul>
-</nav>
+    <nav>
+        <a href="/" class="nav-logo">BILLIARD<span>HALL</span></a>
+        <ul class="nav-links">
+            <li><a href="#status-meja">Status Meja</a></li>
+            <li><a href="#paket">Paket</a></li>
+            <li><a href="#cara-booking">Cara Booking</a></li>
+            @auth
+                @role('superadmin')
+                    <li><a href="{{ route('owner.dashboard') }}" class="nav-cta">Dashboard</a></li>
+                @endrole
+                @role('kasir')
+                    <li><a href="{{ route('kasir.dashboard') }}" class="nav-cta">Dashboard Kasir</a></li>
+                @endrole
+                @role('pelanggan')
+                    <li><a href="{{ route('member.dashboard') }}" class="nav-cta">My Dashboard</a></li>
+                @endrole
+            @else
+                <li><a href="{{ route('login') }}" class="nav-cta">Login / Booking</a></li>
+            @endauth
+        </ul>
+    </nav>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      HERO
 ══════════════════════════════════════════════════ --}}
-<section class="hero">
-    <div class="hero-eyebrow">⬤ Open Every Day — 10:00 — 24:00</div>
-    <h1 class="hero-title">
-        POTONG<br>
-        <span class="accent">BOLA.</span><br>
-        BOOK MEJA.
-    </h1>
-    <p class="hero-subtitle">
-        Cek ketersediaan meja secara realtime, pilih paket terbaik,
-        dan nikmati pengalaman billiard tanpa antrian panjang.
-    </p>
-    <div class="hero-actions">
-        @auth
-            <a href="{{ auth()->user()->hasRole('pelanggan') ? route('pelanggan.booking.create') : '#' }}"
-               class="btn-primary">Booking Sekarang</a>
-        @else
-            <a href="{{ route('login') }}" class="btn-primary">Booking Sekarang</a>
-        @endauth
-        <a href="#status-meja" class="btn-ghost">Cek Status Meja</a>
-    </div>
-    <div class="hero-felt"></div>
-    <div class="scroll-hint">
-        <div class="scroll-arrow"></div>
-        Scroll
-    </div>
-</section>
+    <section class="hero">
+        <div class="hero-eyebrow">⬤ Open Every Day — 10:00 — 24:00</div>
+        <h1 class="hero-title">
+            POTONG<br>
+            <span class="accent">BOLA.</span><br>
+            BOOK MEJA.
+        </h1>
+        <p class="hero-subtitle">
+            Cek ketersediaan meja secara realtime, pilih paket terbaik,
+            dan nikmati pengalaman billiard tanpa antrian panjang.
+        </p>
+        <div class="hero-actions">
+            @auth
+                @role('member')
+                    <a href="{{ auth()->user()->hasRole('member') ? route('member.booking.create') : '#' }}"
+                        class="btn-primary">Booking Sekarang</a>
+                @endrole
+            @else
+                <a href="{{ route('login') }}" class="btn-primary">Booking Sekarang</a>
+            @endauth
+            <a href="#status-meja" class="btn-ghost">Cek Status Meja</a>
+        </div>
+        <div class="hero-felt"></div>
+        <div class="scroll-hint">
+            <div class="scroll-arrow"></div>
+            Scroll
+        </div>
+    </section>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      STATS BAR
 ══════════════════════════════════════════════════ --}}
-<div class="stats-bar">
-    <div class="stat-item">
-        <div class="stat-number">{{ $totalMeja }}</div>
-        <div class="stat-label">Total Meja</div>
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-number">{{ $totalMeja }}</div>
+            <div class="stat-label">Total Meja</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" style="color: var(--neon)">{{ $mejaAvailable }}</div>
+            <div class="stat-label">Tersedia</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" style="color: var(--red)">{{ $mejaOccupied }}</div>
+            <div class="stat-label">Sedang Dipakai</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" style="color: var(--amber)">5K+</div>
+            <div class="stat-label">Member Aktif</div>
+        </div>
     </div>
-    <div class="stat-item">
-        <div class="stat-number" style="color: var(--neon)">{{ $mejaAvailable }}</div>
-        <div class="stat-label">Tersedia</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-number" style="color: var(--red)">{{ $mejaOccupied }}</div>
-        <div class="stat-label">Sedang Dipakai</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-number" style="color: var(--amber)">5K+</div>
-        <div class="stat-label">Member Aktif</div>
-    </div>
-</div>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      STATUS MEJA — Livewire Component
 ══════════════════════════════════════════════════ --}}
-<section id="status-meja">
-    <div class="container">
-        <div class="status-header">
-            <div>
-                <div class="section-label">// realtime status</div>
-                <h2 class="section-title">STATUS MEJA SAAT INI</h2>
-                <p class="section-desc">
-                    Diperbarui otomatis setiap 10 detik.
-                    Pilih meja tersedia dan segera booking.
-                </p>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end;">
-                <div class="live-indicator">
-                    <span class="live-dot"></span>
-                    LIVE UPDATE
+    <section id="status-meja">
+        <div class="container">
+            <div class="status-header">
+                <div>
+                    <div class="section-label">// realtime status</div>
+                    <h2 class="section-title">STATUS MEJA SAAT INI</h2>
+                    <p class="section-desc">
+                        Diperbarui otomatis setiap 10 detik.
+                        Pilih meja tersedia dan segera booking.
+                    </p>
                 </div>
-                <div class="legend">
-                    <div class="legend-item"><span class="legend-dot available"></span> Tersedia</div>
-                    <div class="legend-item"><span class="legend-dot occupied"></span> Terpakai</div>
-                    <div class="legend-item"><span class="legend-dot maintenance"></span> Maintenance</div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end;">
+                    <div class="live-indicator">
+                        <span class="live-dot"></span>
+                        LIVE UPDATE
+                    </div>
+                    <div class="legend">
+                        <div class="legend-item"><span class="legend-dot available"></span> Tersedia</div>
+                        <div class="legend-item"><span class="legend-dot occupied"></span> Terpakai</div>
+                        <div class="legend-item"><span class="legend-dot maintenance"></span> Maintenance</div>
+                    </div>
                 </div>
             </div>
+
+            {{-- Livewire component untuk status meja --}}
+            <livewire:table-status-public />
         </div>
+    </section>
 
-        {{-- Livewire component untuk status meja --}}
-        <livewire:table-status-public/>
-    </div>
-</section>
-
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      PAKET
 ══════════════════════════════════════════════════ --}}
-<section id="paket">
-    <div class="container">
-        <div class="section-label">// pilih sesuai gaya main</div>
-        <h2 class="section-title">PAKET BERMAIN</h2>
-        <p class="section-desc">Hemat lebih banyak dengan paket bundled kami, atau bebas main tanpa batas dengan paket loss.</p>
+    <section id="paket">
+        <div class="container">
+            <div class="section-label">// pilih sesuai gaya main</div>
+            <h2 class="section-title">PAKET BERMAIN</h2>
+            <p class="section-desc">Hemat lebih banyak dengan paket bundled kami, atau bebas main tanpa batas dengan
+                paket loss.</p>
 
-        <div class="packages-grid">
-            @foreach($packages as $pkg)
-            <div class="package-card {{ $loop->iteration === 2 ? 'featured' : '' }}">
-                @if($loop->iteration === 2)
-                    <span class="package-badge">Favorit</span>
-                @endif
-                <div class="package-type">
-                    {{ $pkg->type === 'normal' ? 'Paket Durasi Fix' : 'Paket Loss' }}
-                </div>
-                <div class="package-name">{{ $pkg->name }}</div>
-                @if($pkg->isNormal())
-                    <div class="package-price">Rp {{ number_format($pkg->price, 0, ',', '.') }}</div>
-                    @php $normalPrice = $pkg->pricing ? $pkg->duration_hours * $pkg->pricing->price_per_hour : null; @endphp
-                    @if($normalPrice && $normalPrice > $pkg->price)
-                    <div class="package-price-normal">Normal: Rp {{ number_format($normalPrice, 0, ',', '.') }}</div>
-                    @endif
-                @else
-                    <div class="package-price">
-                        Rp {{ number_format($pkg->pricing?->price_per_hour ?? 0, 0, ',', '.') }}/jam
+            <div class="packages-grid">
+                @foreach ($packages as $pkg)
+                    <div class="package-card {{ $loop->iteration === 2 ? 'featured' : '' }}">
+                        @if ($loop->iteration === 2)
+                            <span class="package-badge">Favorit</span>
+                        @endif
+                        <div class="package-type">
+                            {{ $pkg->type === 'normal' ? 'Paket Durasi Fix' : 'Paket Loss' }}
+                        </div>
+                        <div class="package-name">{{ $pkg->name }}</div>
+                        @if ($pkg->isNormal())
+                            <div class="package-price">Rp {{ number_format($pkg->price, 0, ',', '.') }}</div>
+                            @php $normalPrice = $pkg->pricing ? $pkg->duration_hours * $pkg->pricing->price_per_hour : null; @endphp
+                            @if ($normalPrice && $normalPrice > $pkg->price)
+                                <div class="package-price-normal">Normal: Rp
+                                    {{ number_format($normalPrice, 0, ',', '.') }}</div>
+                            @endif
+                        @else
+                            <div class="package-price">
+                                Rp {{ number_format($pkg->pricing?->price_per_hour ?? 0, 0, ',', '.') }}/jam
+                            </div>
+                            <div class="package-price-normal">Dihitung di akhir sesi</div>
+                        @endif
+                        <p class="package-desc">{{ $pkg->description }}</p>
                     </div>
-                    <div class="package-price-normal">Dihitung di akhir sesi</div>
-                @endif
-                <p class="package-desc">{{ $pkg->description }}</p>
+                @endforeach
             </div>
-            @endforeach
         </div>
-    </div>
-</section>
+    </section>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      CARA BOOKING
 ══════════════════════════════════════════════════ --}}
-<section id="cara-booking">
-    <div class="container">
-        <div class="section-label">// 4 langkah mudah</div>
-        <h2 class="section-title">CARA BOOKING</h2>
-        <p class="section-desc">Dari daftar akun sampai meja siap dimainkan, cukup dalam hitungan menit.</p>
+    <section id="cara-booking">
+        <div class="container">
+            <div class="section-label">// 4 langkah mudah</div>
+            <h2 class="section-title">CARA BOOKING</h2>
+            <p class="section-desc">Dari daftar akun sampai meja siap dimainkan, cukup dalam hitungan menit.</p>
 
-        <div class="steps-grid">
-            <div class="step-card">
-                <div class="step-number">01</div>
-                <span class="step-icon">👤</span>
-                <div class="step-title">Daftar / Login</div>
-                <div class="step-desc">Buat akun gratis atau login jika sudah punya. Tamu bisa melihat status meja tanpa login.</div>
-            </div>
-            <div class="step-card">
-                <div class="step-number">02</div>
-                <span class="step-icon">🎱</span>
-                <div class="step-title">Pilih Meja & Waktu</div>
-                <div class="step-desc">Pilih meja favorit, tentukan tanggal dan jam mulai bermain sesuai jadwal.</div>
-            </div>
-            <div class="step-card">
-                <div class="step-number">03</div>
-                <span class="step-icon">📦</span>
-                <div class="step-title">Pilih Paket</div>
-                <div class="step-desc">Hemat dengan paket bundled atau pilih paket loss untuk main bebas tanpa batas waktu tetap.</div>
-            </div>
-            <div class="step-card">
-                <div class="step-number">04</div>
-                <span class="step-icon">🎯</span>
-                <div class="step-title">Konfirmasi & Main</div>
-                <div class="step-desc">Tunggu konfirmasi kasir, datang tepat waktu, dan meja sudah siap untuk Anda mainkan.</div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">01</div>
+                    <span class="step-icon">👤</span>
+                    <div class="step-title">Daftar / Login</div>
+                    <div class="step-desc">Buat akun gratis atau login jika sudah punya. Tamu bisa melihat status meja
+                        tanpa login.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">02</div>
+                    <span class="step-icon">🎱</span>
+                    <div class="step-title">Pilih Meja & Waktu</div>
+                    <div class="step-desc">Pilih meja favorit, tentukan tanggal dan jam mulai bermain sesuai jadwal.
+                    </div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">03</div>
+                    <span class="step-icon">📦</span>
+                    <div class="step-title">Pilih Paket</div>
+                    <div class="step-desc">Hemat dengan paket bundled atau pilih paket loss untuk main bebas tanpa
+                        batas waktu tetap.</div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">04</div>
+                    <span class="step-icon">🎯</span>
+                    <div class="step-title">Konfirmasi & Main</div>
+                    <div class="step-desc">Tunggu konfirmasi kasir, datang tepat waktu, dan meja sudah siap untuk Anda
+                        mainkan.</div>
+                </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      CTA
 ══════════════════════════════════════════════════ --}}
-<section id="cta">
-    <div class="container">
-        <p class="section-label" style="text-align:center">// jangan tunggu lama</p>
-        <h2 class="cta-title">
-            MEJA <span class="accent">TERSEDIA</span><br>
-            SEKARANG JUGA
-        </h2>
-        <p style="color: var(--text-dim); margin: 1rem auto 2.5rem; max-width: 400px; font-size: 1rem;">
-            Segera booking sebelum diambil orang lain. Bayar di tempat, mudah dan cepat.
-        </p>
-        @auth
-            <a href="{{ route('pelanggan.booking.create') }}" class="btn-primary">Booking Meja →</a>
-        @else
-            <a href="{{ route('login') }}" class="btn-primary">Mulai Booking →</a>
-        @endauth
-    </div>
-</section>
+    <section id="cta">
+        <div class="container">
+            <p class="section-label" style="text-align:center">// jangan tunggu lama</p>
+            <h2 class="cta-title">
+                MEJA <span class="accent">TERSEDIA</span><br>
+                SEKARANG JUGA
+            </h2>
+            <p style="color: var(--text-dim); margin: 1rem auto 2.5rem; max-width: 400px; font-size: 1rem;">
+                Segera booking sebelum diambil orang lain. Bayar di tempat, mudah dan cepat.
+            </p>
+            @auth
+                @role('member')
+                    <a href="{{ route('pelanggan.booking.create') }}" class="btn-primary">Booking Meja →</a>
+                @endrole
+            @else
+                <a href="{{ route('login') }}" class="btn-primary">Mulai Booking →</a>
+            @endauth
+        </div>
+    </section>
 
-{{-- ══════════════════════════════════════════════════
+    {{-- ══════════════════════════════════════════════════
      FOOTER
 ══════════════════════════════════════════════════ --}}
-<footer>
-    <div class="footer-logo">BILLIARD HALL</div>
-    <div class="footer-copy">
-        &copy; {{ date('Y') }} Billiard Hall. Open 10:00 – 24:00 every day.
-    </div>
-</footer>
+    <footer>
+        <div class="footer-logo">BILLIARD HALL</div>
+        <div class="footer-copy">
+            &copy; {{ date('Y') }} Billiard Hall. Open 10:00 – 24:00 every day.
+        </div>
+    </footer>
 
-@livewireScripts
+    @livewireScripts
 
-<script>
-    // Smooth scroll untuk nav links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    <script>
+        // Smooth scroll untuk nav links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            });
         });
-    });
-</script>
+    </script>
 
 </body>
+
 </html>
