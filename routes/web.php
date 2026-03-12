@@ -21,7 +21,9 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
     Route::livewire('/kasir', 'pages.kasir.index')->name('kasir.index');
     Route::livewire('/kasir/create', 'pages.kasir.create')->name('kasir.create');
     Route::livewire('/kasir/{id}/edit', 'pages.kasir.edit')->name('kasir.edit');
-    Route::livewire('/member', 'pages::member.index')->name('member.index');
+    Route::livewire('/member', 'pages.member.index')->name('member.index');
+    Route::livewire('/member/create', 'pages.member.create')->name('member.create');
+    Route::livewire('/member/{id}/edit', 'pages.member.edit')->name('member.edit');
 });
 
 // Route::get('/dashboard', function () {
