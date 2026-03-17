@@ -14,13 +14,14 @@ return new class extends Migration
         Schema::create('bookings', function (Blueprint $table) {
             $table->id();
             $table->string('booking_code')->unique();
-            $table->foreignId('customer_id')->constrained('users');
+            $table->foreignId('customer_id')->nullable()->constrained('users');
+            $table->string('guest_name')->nullable();
             $table->foreignId('table_id')->constrained();
             $table->foreignId('package_id')->nullable()->constrained();
             $table->foreignId('pricing_id')->nullable()->constrained();
             $table->date('scheduled_date');
             $table->time('scheduled_start');
-            $table->time('scheduled_end');
+            $table->time('scheduled_end')->nullable();
             $table->text('notes')->nullable();
             $table->enum('status', ['pending','confirmed','rejected','cancelled','completed'])->default('pending');
             $table->foreignId('confirmed_by')->nullable()->constrained('users');

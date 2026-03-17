@@ -1089,14 +1089,14 @@
             <li><a href="#paket">Paket</a></li>
             <li><a href="#cara-booking">Cara Booking</a></li>
             @auth
-                @role('superadmin')
+                @role('member')
+                    <li><a href="{{ route('member.booking.index') }}" class="nav-cta">Booking Saya</a></li>
+                @endrole
+                @role('owner')
                     <li><a href="{{ route('owner.dashboard') }}" class="nav-cta">Dashboard</a></li>
                 @endrole
                 @role('kasir')
                     <li><a href="{{ route('kasir.dashboard') }}" class="nav-cta">Dashboard Kasir</a></li>
-                @endrole
-                @role('pelanggan')
-                    <li><a href="{{ route('member.dashboard') }}" class="nav-cta">My Dashboard</a></li>
                 @endrole
             @else
                 <li><a href="{{ route('login') }}" class="nav-cta">Login / Booking</a></li>
@@ -1121,8 +1121,7 @@
         <div class="hero-actions">
             @auth
                 @role('member')
-                    <a href="{{ auth()->user()->hasRole('member') ? route('member.booking.create') : '#' }}"
-                        class="btn-primary">Booking Sekarang</a>
+                    <a href="{{ route('member.booking.create') }}" class="btn-primary">Booking Sekarang</a>
                 @endrole
             @else
                 <a href="{{ route('login') }}" class="btn-primary">Booking Sekarang</a>
@@ -1287,7 +1286,7 @@
             </p>
             @auth
                 @role('member')
-                    <a href="{{ route('pelanggan.booking.create') }}" class="btn-primary">Booking Meja →</a>
+                    <a href="{{ route('member.booking.create') }}" class="btn-primary">Booking Meja →</a>
                 @endrole
             @else
                 <a href="{{ route('login') }}" class="btn-primary">Mulai Booking →</a>

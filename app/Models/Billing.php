@@ -18,6 +18,7 @@ class Billing extends Model
         'billing_code',
         'booking_id',
         'customer_id',
+        'guest_name',
         'table_id',
         'package_id',
         'pricing_id',
@@ -120,17 +121,26 @@ class Billing extends Model
 
     // COMPUTED : RUNNING TIME
 
-    /** Durasi berjalan dalam detik (untuk counter realtime) */
     public function getElapsedSecondsAttribute(): int
     {
-        $end = $this->ended_at ?? now();
+        $end = $this->isActive() ? now() : $this->ended_at;
+
+        // Jika billing aktif dan waktu sudah melewati jadwal habis, maka argometer dikunci berhenti di jadwal habis
+        if ($this->isActive() && $this->scheduled_end_at && $end->greaterThan($this->scheduled_end_at)) {
+            $end = $this->scheduled_end_at;
+        }
+
         return (int) $this->started_at->diffInSeconds($end);
     }
 
     /** Durasi berjalan diformat HH:MM:SS */
     public function getElapsedFormattedAttribute(): string
     {
-        return gmdate('H:i:s', $this->elapsed_seconds);
+        $hours = floor($this->elapsed_seconds / 3600);
+        $minutes = floor(($this->elapsed_seconds / 60) % 60);
+        $seconds = $this->elapsed_seconds % 60;
+
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
     }
 
     /** Total sementara untuk billing yang masih aktif */
@@ -142,7 +152,9 @@ class Billing extends Model
 
         $package = $this->package;
         $pricing = $this->pricing;
-        $elapsedHours = $this->elapsed_seconds / 3600;
+        
+        // Pembulatan ke bawah (floor) untuk mengabaikan kelebihan menit, minimum 1 jam.
+        $elapsedHours = max(1, floor($this->elapsed_seconds / 3600));
 
         if (!$package) {
             // Tanpa paket: hitung dari harga/jam

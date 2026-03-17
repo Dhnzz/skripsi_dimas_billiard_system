@@ -13,6 +13,8 @@ class RedirectController extends Controller
         $user = Auth::user();
         if ($user->hasRole('owner')) return redirect()->route('owner.dashboard');
         if ($user->hasRole('kasir'))      return redirect()->route('kasir.dashboard');
-        return redirect()->route('member.dashboard');
+        
+        // Member tidak punya dashboard, langsung arahkan ke riwayat booking
+        return redirect()->route('member.booking.index');
     }
 }

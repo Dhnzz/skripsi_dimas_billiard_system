@@ -24,6 +24,16 @@ class Pricing extends Model
         'is_active'      => 'boolean',
     ];
 
+    protected static function booted()
+    {
+        static::saved(function ($pricing) {
+            // Jika tarif ini di-set aktif, nonaktifkan semua tarif lainnya
+            if ($pricing->is_active) {
+                static::where('id', '!=', $pricing->id)->update(['is_active' => false]);
+            }
+        });
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

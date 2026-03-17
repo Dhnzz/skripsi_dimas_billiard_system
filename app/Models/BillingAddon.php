@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class BillingAddon extends Pivot
 {
+    protected $table = 'billing_addons';
+
     protected $fillable = [
         'billing_id',
         'addon_id',

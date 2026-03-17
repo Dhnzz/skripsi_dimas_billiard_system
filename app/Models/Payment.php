@@ -11,6 +11,7 @@ class Payment extends Model
         'payment_code',
         'billing_id',
         'customer_id',
+        'guest_name',
         'amount',
         'amount_paid',
         'change_amount',

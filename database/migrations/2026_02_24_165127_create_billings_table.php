@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('billing_code')->unique();
             $table->foreignId('booking_id')->nullable()->constrained();
-            $table->foreignId('customer_id')->constrained('users');
+            $table->foreignId('customer_id')->nullable()->constrained('users');
+            $table->string('guest_name')->nullable();
             $table->foreignId('table_id')->constrained();
             $table->foreignId('package_id')->nullable()->constrained();
             $table->foreignId('pricing_id')->nullable()->constrained();

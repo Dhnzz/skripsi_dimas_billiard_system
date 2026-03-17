@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('payment_code')->unique();
             $table->foreignId('billing_id')->constrained();
-            $table->foreignId('customer_id')->constrained('users');
+            $table->foreignId('customer_id')->nullable()->constrained('users');
+            $table->string('guest_name')->nullable();
             $table->decimal('amount', 10, 2);
             $table->decimal('amount_paid', 10, 2)->nullable();
             $table->decimal('change_amount', 10, 2)->nullable();
