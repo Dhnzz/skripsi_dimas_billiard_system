@@ -16,14 +16,31 @@ Route::middleware(['auth', 'role:member'])->prefix('member')->name('member.')->g
 });
 
 Route::middleware(['auth', 'role:kasir'])->prefix('kasir')->name('kasir.')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'owner'])->name('dashboard');
-    // Monitoring Booking & Billing untuk Kasir
+    Route::livewire('/dashboard', 'pages.kasir.dashboard')->name('dashboard');
+
+
+    // ── Operasional Utama ─────────────────────────────────────────
+    // Booking
     Route::livewire('/booking', 'pages.booking.index')->name('booking.index');
     Route::livewire('/booking/{id}', 'pages.booking.show')->name('booking.show');
+    // Billing
     Route::livewire('/billing', 'pages.billing.index')->name('billing.index');
     Route::livewire('/billing/create', 'pages.billing.create')->name('billing.create');
     Route::livewire('/billing/{id}', 'pages.billing.show')->name('billing.show');
+
+    // ── Data Referensi (read-only) ────────────────────────────────
+    // Status & Lihat Meja
+    Route::livewire('/meja', 'pages.meja.index')->name('meja.index');
+    Route::livewire('/meja/{id}', 'pages.meja.show')->name('meja.show');
+    // Daftar Member (referensi nama, kontak)
+    Route::livewire('/member', 'pages.member.index')->name('member.index');
+    // Daftar Addon (referensi harga)
+    Route::livewire('/addon', 'pages.addon.index')->name('addon.index');
+    // Tarif & Paket (referensi harga)
+    Route::livewire('/tarif', 'pages.pricing.index')->name('pricing.index');
+    Route::livewire('/paket', 'pages.package.index')->name('package.index');
 });
+
 
 Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->group(function () {
     // Route::get('/dashboard', [DashboardController::class, 'owner'])->name('dashboard');

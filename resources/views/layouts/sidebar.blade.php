@@ -145,6 +145,7 @@
                 @endrole
 
                 @role('kasir')
+                    {{-- ── Section: Home ── --}}
                     <li class="nav-item static-item">
                         <a class="nav-link static-item disabled" href="#" tabindex="-1">
                             <span class="default-icon">Home</span>
@@ -152,44 +153,82 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('kasir.dashboard') ? 'active' : '' }}" aria-current="page" href="{{ route('kasir.dashboard') }}">
-                            <i class="icon">
-                                <i class="fa-solid fa-chart-pie"></i>
-                            </i>
+                        <a class="nav-link {{ request()->routeIs('kasir.dashboard') ? 'active' : '' }}" aria-current="page"
+                            href="{{ route('kasir.dashboard') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-chart-pie"></i></i>
                             <span class="item-name">Dashboard</span>
                         </a>
                     </li>
-                    <li>
-                        <hr class="hr-horizontal">
-                    </li>
+                    <li><hr class="hr-horizontal"></li>
+
+                    {{-- ── Section: Operasional ── --}}
                     <li class="nav-item static-item">
                         <a class="nav-link static-item disabled" href="#" tabindex="-1">
-                            <span class="default-icon">Monitoring</span>
+                            <span class="default-icon">Operasional</span>
                             <span class="mini-icon">-</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('kasir.booking.*') ? 'active' : '' }}" aria-current="page"
-                            href="{{ route('kasir.booking.index') }}" wire:navigate>
-                            <i class="icon">
-                                <i class="fa-solid fa-calendar-check"></i>
-                            </i>
+                            href="{{ route('kasir.booking.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-calendar-check"></i></i>
                             <span class="item-name">Booking</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('kasir.billing.*') ? 'active' : '' }}" aria-current="page"
-                            href="{{ route('kasir.billing.index') }}" wire:navigate>
-                            <i class="icon">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
-                            </i>
+                            href="{{ route('kasir.billing.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-file-invoice-dollar"></i></i>
                             <span class="item-name">Billing</span>
                         </a>
                     </li>
-                    <li>
-                        <hr class="hr-horizontal">
+                    <li><hr class="hr-horizontal"></li>
+
+                    {{-- ── Section: Referensi Data ── --}}
+                    <li class="nav-item static-item">
+                        <a class="nav-link static-item disabled" href="#" tabindex="-1">
+                            <span class="default-icon">Referensi</span>
+                            <span class="mini-icon">-</span>
+                        </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('kasir.meja.*') ? 'active' : '' }}" aria-current="page"
+                            href="{{ route('kasir.meja.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-table"></i></i>
+                            <span class="item-name">Status Meja</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('kasir.member.*') ? 'active' : '' }}" aria-current="page"
+                            href="{{ route('kasir.member.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-users"></i></i>
+                            <span class="item-name">Daftar Member</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('kasir.addon.*') ? 'active' : '' }}" aria-current="page"
+                            href="{{ route('kasir.addon.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-box"></i></i>
+                            <span class="item-name">Addon F&B</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('kasir.pricing.*') ? 'active' : '' }}" aria-current="page"
+                            href="{{ route('kasir.pricing.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-tags"></i></i>
+                            <span class="item-name">Tarif</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('kasir.package.*') ? 'active' : '' }}" aria-current="page"
+                            href="{{ route('kasir.package.index') }}" wire:navigate.hover>
+                            <i class="icon"><i class="fa-solid fa-box-open"></i></i>
+                            <span class="item-name">Paket</span>
+                        </a>
+                    </li>
+                    <li><hr class="hr-horizontal"></li>
                 @endrole
+
 
                 @role('member')
                     <li class="nav-item static-item">
