@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\RedirectController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\Api\TableLightController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
@@ -91,3 +92,19 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
 require __DIR__ . '/auth.php';
 Route::get('/redirect', RedirectController::class)
     ->middleware('auth')->name('redirect');
+
+// ── API untuk Microcontroller (Lampu Meja) ──────────────────────────────────
+// Endpoint ini dikonsumsi oleh microcontroller di setiap meja billiard.
+// Tidak membutuhkan autentikasi user karena diakses langsung oleh perangkat keras.
+Route::prefix('api/microcontroller')->name('api.microcontroller.')->group(function () {
+    // Status lampu satu meja berdasarkan ID meja
+    // GET /api/microcontroller/table/{tableId}/light
+    Route::get('/table/{tableId}/light', [TableLightController::class, 'status'])
+        ->name('table.light');
+
+    // Status lampu semua meja sekaligus (opsional, untuk kontroler pusat)
+    // GET /api/microcontroller/tables/light
+    Route::get('/tables/light', [TableLightController::class, 'statusAll'])
+        ->name('tables.light');
+});
+
