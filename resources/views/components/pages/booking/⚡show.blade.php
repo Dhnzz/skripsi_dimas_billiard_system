@@ -158,6 +158,12 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
             'confirmed_at' => now(),
         ]);
 
+        // Jika booking untuk hari ini → langsung tandai meja 'occupied'
+        // agar meja tidak bisa dipakai walk-in lain sebelum billing dimulai
+        if ($this->booking->scheduled_date?->isToday()) {
+            $this->booking->table?->update(['status' => 'occupied']);
+        }
+
         $this->booking->refresh();
         $this->dispatch('notify', message: 'Booking berhasil dikonfirmasi!', type: 'success');
     }
@@ -170,6 +176,25 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
             'status'          => 'rejected',
             'rejected_reason' => $this->rejectReason ?: null,
         ]);
+
+        // Kembalikan meja ke 'available' jika tidak ada booking confirmed lain
+        // atau billing aktif yang masih berjalan di meja ini
+        $table = $this->booking->table;
+        if ($table) {
+            $hasActiveBilling = \App\Models\Billing::where('table_id', $table->id)
+                ->where('status', 'active')
+                ->exists();
+
+            $hasOtherConfirmedToday = \App\Models\Booking::where('table_id', $table->id)
+                ->where('id', '!=', $this->booking->id)
+                ->where('status', 'confirmed')
+                ->whereDate('scheduled_date', today())
+                ->exists();
+
+            if (!$hasActiveBilling && !$hasOtherConfirmedToday) {
+                $table->update(['status' => 'available']);
+            }
+        }
 
         $this->booking->refresh();
         $this->showRejectModal = false;
@@ -589,7 +614,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
 
     {{-- Back Button --}}
     <div class="mt-2">
-        <a href="{{ route('owner.booking.index') }}" wire:navigate class="btn btn-outline-secondary btn-sm">
+        <a href="{{ auth()->user()->hasRole('owner') ? route('owner.booking.index') : route('kasir.booking.index') }}" wire:navigate class="btn btn-outline-secondary btn-sm">
             <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Daftar Booking
         </a>
     </div>

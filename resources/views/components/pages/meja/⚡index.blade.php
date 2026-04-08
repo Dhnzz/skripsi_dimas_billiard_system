@@ -124,11 +124,13 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Meja', 'breadcrumbs' => [['ti
                     <div class="header-title">
                         <h4 class="mb-2 card-title">Data Meja</h4>
                     </div>
-                    <a href="/owner/meja/create" wire:navigate class="btn btn-sm btn-success fs-6 display-6">
+                    @role('owner')
+                    <a href="{{ route('owner.meja.create') }}" wire:navigate class="btn btn-sm btn-success fs-6 display-6">
                         <small>
                             <i class="fa-solid fa-plus"></i> Tambah Meja
                         </small>
                     </a>
+                    @endrole
                 </div>
                 <div class="p-0 card-body">
                     <div class="d-flex justify-content-between align-items-center p-3">
@@ -217,11 +219,12 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Meja', 'breadcrumbs' => [['ti
                                         <td class="text-center align-middle">
                                             <a class="btn btn-sm btn-icon btn-info rounded-circle"
                                                 data-bs-toggle="tooltip" data-bs-placement="top" title="Detail"
-                                                href="{{ route('owner.meja.show', $table->id) }}" wire:navigate>
+                                                href="{{ auth()->user()->hasRole('owner') ? route('owner.meja.show', $table->id) : route('kasir.meja.show', $table->id) }}" wire:navigate>
                                                 <span class="btn-inner">
                                                     <i class="fa-solid fa-eye"></i>
                                                 </span>
                                             </a>
+                                            @role('owner')
                                             <a class="btn btn-sm btn-icon btn-warning rounded-circle"
                                                 data-bs-toggle="tooltip" data-bs-placement="top" title="Edit"
                                                 href="{{ route('owner.meja.edit', $table->id) }}" wire:navigate>
@@ -251,6 +254,7 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Meja', 'breadcrumbs' => [['ti
                                                     <i class="fa fa-trash"></i>
                                                 </span>
                                             </button>
+                                            @endrole
                                         </td>
                                     </tr>
                                 @empty

@@ -4,6 +4,7 @@ use App\Models\Billing;
 use App\Models\Booking;
 use App\Models\BillingAddon;
 use App\Models\Addon;
+use App\Models\Payment;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -21,6 +22,10 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
     public bool $showFinishModal   = false;
     public bool $isTimeUp          = false;
     public float $extendHours      = 1;
+
+    // Pembayaran
+    public string $paymentMethod   = 'cash';
+    public float  $amountPaid      = 0;
 
     // ── Mount ────────────────────────────────────────────────
 
@@ -71,6 +76,20 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
     }
 
     #[Computed]
+    public function changeAmount(): float
+    {
+        if ($this->paymentMethod !== 'cash') return 0;
+        return max(0, $this->amountPaid - $this->billing->current_total);
+    }
+
+    #[Computed]
+    public function isAmountSufficient(): bool
+    {
+        if ($this->paymentMethod !== 'cash') return true;
+        return $this->amountPaid >= $this->billing->current_total;
+    }
+
+    #[Computed]
     public function isWalkIn(): bool
     {
         return is_null($this->billing->booking_id);
@@ -94,8 +113,35 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
     {
         if (!$this->billing->isActive()) return;
 
+        // Validasi pembayaran (hanya jika bukan auto-finish)
+        if (!$auto) {
+            $rules = [
+                'paymentMethod' => 'required|in:cash,transfer,qris',
+            ];
+            $messages = [
+                'paymentMethod.required' => 'Metode pembayaran harus dipilih.',
+                'paymentMethod.in'       => 'Metode pembayaran tidak valid.',
+            ];
+
+            if ($this->paymentMethod === 'cash') {
+                $rules['amountPaid'] = 'required|numeric|min:0';
+                $messages['amountPaid.required'] = 'Nominal uang yang diterima harus diisi.';
+                $messages['amountPaid.min']       = 'Nominal tidak boleh negatif.';
+            }
+
+            $this->validate($rules, $messages);
+
+            // Cek kecukupan uang (cash)
+            if ($this->paymentMethod === 'cash' && $this->amountPaid < $this->billing->current_total) {
+                $this->addError('amountPaid', 'Uang yang diterima kurang dari total tagihan.');
+                return;
+            }
+        }
+
         $pkg     = $this->billing->package;
-        $pricing = $this->billing->pricing;
+        // Fallback: paket normal tidak punya pricing_id langsung di billing,
+        // gunakan pricing dari package untuk extra jam / paket loss
+        $pricing = $this->billing->pricing ?? $pkg?->pricing;
         $end     = now();
 
         // Kunci meteran di scheduled_end_at agar tidak over-charge
@@ -104,19 +150,19 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
         }
 
         $elapsedSeconds = $this->billing->started_at->diffInSeconds($end);
-        $elapsedHours   = max(1, floor($elapsedSeconds / 3600));
+        $elapsedHours   = max(1, (int) floor($elapsedSeconds / 3600));
+        $basePrice      = 0;
+        $extraPrice     = 0;
 
         if (!$pkg) {
-            $basePrice  = $elapsedHours * ($pricing?->price_per_hour ?? 0);
-            $extraPrice = 0;
+            $basePrice  = $elapsedHours * (float)($pricing?->price_per_hour ?? 0);
         } elseif ($pkg->type === 'normal') {
             $basePrice  = (float) $pkg->price;
             $extraHrs   = max(0, $elapsedHours - (int) $pkg->duration_hours);
-            $extraPrice = $extraHrs * ($pricing?->price_per_hour ?? 0);
+            $extraPrice = $extraHrs * (float)($pricing?->price_per_hour ?? 0);
         } else {
             // loss
-            $basePrice  = $elapsedHours * ($pricing?->price_per_hour ?? 0);
-            $extraPrice = 0;
+            $basePrice = $elapsedHours * (float)($pricing?->price_per_hour ?? 0);
         }
 
         $addonTotal = $this->billing->confirmedAddons()->sum('subtotal');
@@ -131,6 +177,23 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             'addon_total'           => $addonTotal,
             'grand_total'           => $grandTotal,
             'ended_by'              => auth()->id(),
+        ]);
+
+        // Simpan record pembayaran
+        $amountPaidFinal  = ($this->paymentMethod === 'cash') ? (float) $this->amountPaid : (float) $grandTotal;
+        $changeAmountFinal = ($this->paymentMethod === 'cash') ? max(0, (float) $this->amountPaid - (float) $grandTotal) : 0;
+
+        Payment::create([
+            'billing_id'    => $this->billing->id,
+            'customer_id'   => $this->billing->customer_id,
+            'guest_name'    => $this->billing->guest_name,
+            'amount'        => $grandTotal,
+            'amount_paid'   => $amountPaidFinal,
+            'change_amount' => $changeAmountFinal,
+            'method'        => $auto ? 'cash' : $this->paymentMethod,
+            'status'        => 'paid',
+            'paid_at'       => now(),
+            'processed_by'  => auth()->id(),
         ]);
 
         // Update status meja → available
@@ -148,7 +211,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
 
         $msg = $auto
             ? 'Waktu lewat 5 menit. Billing otomatis diselesaikan!'
-            : 'Permainan berhasil diselesaikan!';
+            : 'Permainan berhasil diselesaikan & pembayaran tercatat!';
         $this->dispatch('notify', message: $msg, type: $auto ? 'info' : 'success');
     }
 
@@ -158,12 +221,13 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
     {
         if (!$this->billing->isActive() || !$this->billing->scheduled_end_at) return;
 
-        $this->validate(['extendHours' => 'required|numeric|min:0.5'], [
+        $this->validate(['extendHours' => 'required|integer|min:1'], [
             'extendHours.required' => 'Durasi perpanjangan harus diisi.',
-            'extendHours.min'      => 'Minimal perpanjangan 0.5 jam (30 menit).',
+            'extendHours.integer'  => 'Perpanjangan harus dalam satuan jam penuh.',
+            'extendHours.min'      => 'Minimal perpanjangan 1 jam.',
         ]);
 
-        $newEnd = $this->billing->scheduled_end_at->copy()->addMinutes((int) ($this->extendHours * 60));
+        $newEnd = $this->billing->scheduled_end_at->copy()->addHours((int) $this->extendHours);
 
         // Cek konflik booking di meja yang sama
         if ($this->isWalkIn) {
@@ -398,7 +462,10 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                                 {{ $billing->formatted_current_total }}
                             </div>
                             @if($billing->isActive())
-                                <div class="font-monospace fw-bold text-primary mt-1" style="font-size:1.1rem;" id="elapsed-timer">
+                                <div class="font-monospace fw-bold text-primary mt-1" style="font-size:1.1rem;"
+                                    id="elapsed-timer"
+                                    data-elapsed-seconds="{{ $billing->elapsed_seconds }}"
+                                    data-capped="{{ $billing->scheduled_end_at && now()->greaterThanOrEqualTo($billing->scheduled_end_at) ? '1' : '0' }}">
                                     {{ $billing->elapsed_formatted }}
                                 </div>
                             @endif
@@ -554,19 +621,8 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                             <i class="fa-solid fa-plus me-1"></i> Tambah Addon F&B
                         </button>
                         <button class="btn btn-danger btn-sm fw-semibold"
-                            @click="
-                                Swal.fire({
-                                    title: 'Selesaikan Permainan?',
-                                    html: 'Meja akan dikosongkan dan total tagihan dihitung final.',
-                                    icon: 'warning',
-                                    showCancelButton: true,
-                                    confirmButtonColor: '#dc3545',
-                                    cancelButtonColor: '#6c757d',
-                                    confirmButtonText: 'Ya, Selesaikan!',
-                                    cancelButtonText: 'Batal'
-                                }).then(r => { if(r.isConfirmed) $wire.finishBilling() })
-                            ">
-                            <i class="fa-solid fa-stop me-1"></i> Selesaikan Permainan
+                            @click="$wire.set('showFinishModal', true)">
+                            <i class="fa-solid fa-cash-register me-1"></i> Selesaikan & Bayar
                         </button>
                     </div>
                 @endif
@@ -859,24 +915,71 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                     </h5>
                 </div>
                 <div class="card-body">
-                    {{-- Harga Dasar --}}
+                    @php
+                        // Hitung komponen harga live (aktif maupun selesai)
+                        $pkg     = $billing->package;
+                        // Fallback: pakai pricing dari package jika billing tidak punya pricing_id langsung
+                        $pricing = $billing->pricing ?? $pkg?->pricing;
+
+                        if ($billing->isCompleted()) {
+                            $liveElapsedHours = (int) $billing->actual_duration_hours;
+                            $liveBase         = (float) $billing->base_price;
+                            $liveExtra        = (float) $billing->extra_price;
+                        } else {
+                            $liveElapsedHours = max(1, (int) floor($billing->elapsed_seconds / 3600));
+                            if (!$pkg) {
+                                $liveBase  = $liveElapsedHours * (float)($pricing?->price_per_hour ?? 0);
+                                $liveExtra = 0;
+                            } elseif ($pkg->isNormal()) {
+                                $liveBase = (float) $pkg->price;
+                                // Gunakan scheduled_end_at (bukan elapsed) agar extra langsung muncul setelah perpanjangan
+                                if ($billing->scheduled_end_at) {
+                                    $plannedHrs = (int) $billing->started_at->diffInHours($billing->scheduled_end_at);
+                                    $extraHrs   = max(0, $plannedHrs - (int) $pkg->duration_hours);
+                                } else {
+                                    $extraHrs = max(0, $liveElapsedHours - (int) $pkg->duration_hours);
+                                }
+                                $liveExtra = $extraHrs * (float)($pricing?->price_per_hour ?? 0);
+                            } else {
+                                // Loss: actual elapsed
+                                $liveBase  = $liveElapsedHours * (float)($pricing?->price_per_hour ?? 0);
+                                $liveExtra = 0;
+                            }
+                        }
+                    @endphp
+
+                    {{-- Label harga dasar --}}
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="text-muted small">Harga Dasar</span>
-                        <span class="fw-medium">
-                            @if($billing->isCompleted())
-                                Rp {{ number_format($billing->base_price, 0, ',', '.') }}
+                        <span class="text-muted small">
+                            @if(!$pkg)
+                                Tarif per Jam
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">{{ $liveElapsedHours }} jam</span>
+                            @elseif($pkg->isNormal())
+                                Paket {{ $pkg->name }}
+                                <span class="badge bg-info-subtle text-info border border-info-subtle ms-1">{{ (int)$pkg->duration_hours }} jam</span>
                             @else
-                                <span class="text-muted fst-italic">Dihitung saat selesai</span>
+                                Tarif Loss per Jam
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1">{{ $liveElapsedHours }} jam</span>
                             @endif
+                        </span>
+                        <span class="fw-medium">
+                            Rp {{ number_format($liveBase, 0, ',', '.') }}
                         </span>
                     </div>
 
-                    {{-- Extra Waktu --}}
-                    @if($billing->isCompleted() && $billing->extra_price > 0)
+                    {{-- Extra Waktu (paket normal melebihi durasi) --}}
+                    @if($liveExtra > 0)
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="text-muted small">Biaya Extra Waktu</span>
+                            <span class="text-muted small">
+                                Extra Waktu
+                                @if(!$billing->isCompleted())
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle ms-1">
+                                        +{{ max(0, $liveElapsedHours - (int)$pkg->duration_hours) }} jam
+                                    </span>
+                                @endif
+                            </span>
                             <span class="fw-medium text-warning">
-                                + Rp {{ number_format($billing->extra_price, 0, ',', '.') }}
+                                + Rp {{ number_format($liveExtra, 0, ',', '.') }}
                             </span>
                         </div>
                     @endif
@@ -896,7 +999,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                     {{-- Grand Total --}}
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-bold">
-                            {{ $billing->isActive() ? 'Total Sementara' : 'Total Final' }}
+                            {{ $billing->isActive() ? 'Total Tagihan' : 'Total Final' }}
                         </span>
                         <span class="fw-bold fs-5 text-success">
                             {{ $billing->formatted_current_total }}
@@ -913,21 +1016,72 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                     {{-- Info Pembayaran --}}
                     @if($billing->payment)
                         <hr class="my-2">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="text-muted small">Status Pembayaran</span>
+
+                        {{-- Header status --}}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small fw-semibold">Status Pembayaran</span>
                             <span class="badge {{ $billing->payment->isPaid() ? 'bg-success' : 'bg-warning text-dark' }}">
                                 {{ $billing->payment->isPaid() ? 'Lunas' : 'Belum Dibayar' }}
                             </span>
                         </div>
+
                         @if($billing->payment->isPaid())
+                            {{-- Kode Payment --}}
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Kode Bayar</span>
+                                <span class="fw-medium font-monospace small">{{ $billing->payment->payment_code }}</span>
+                            </div>
+
+                            {{-- Metode --}}
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="text-muted small">Metode</span>
-                                <span class="fw-medium text-uppercase">{{ $billing->payment->method }}</span>
+                                <span>
+                                    @php
+                                        $methodIcon = match($billing->payment->method) {
+                                            'cash'     => ['fa-money-bill-wave', 'text-success', 'Cash'],
+                                            'transfer' => ['fa-building-columns', 'text-primary', 'Transfer'],
+                                            'qris'     => ['fa-qrcode', 'text-info', 'QRIS'],
+                                            default    => ['fa-credit-card', 'text-secondary', ucfirst($billing->payment->method)],
+                                        };
+                                    @endphp
+                                    <span class="badge bg-light border text-dark fw-medium">
+                                        <i class="fa-solid {{ $methodIcon[0] }} {{ $methodIcon[1] }} me-1"></i>
+                                        {{ $methodIcon[2] }}
+                                    </span>
+                                </span>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center">
+
+                            {{-- Total Tagihan --}}
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Total Tagihan</span>
+                                <span class="fw-semibold text-success">Rp {{ number_format((float)$billing->payment->amount, 0, ',', '.') }}</span>
+                            </div>
+
+                            {{-- Uang Diterima & Kembalian (hanya Cash) --}}
+                            @if($billing->payment->method === 'cash')
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small">Uang Diterima</span>
+                                    <span class="fw-medium">Rp {{ number_format((float)$billing->payment->amount_paid, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small">Kembalian</span>
+                                    <span class="fw-bold text-warning">Rp {{ number_format((float)$billing->payment->change_amount, 0, ',', '.') }}</span>
+                                </div>
+                            @endif
+
+                            {{-- Waktu bayar --}}
+                            <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="text-muted small">Dibayar Pada</span>
                                 <span class="fw-medium small">{{ $billing->payment->paid_at?->format('d M Y, H:i') ?? '-' }}</span>
                             </div>
+
+                            {{-- Diproses oleh --}}
+                            @if($billing->payment->processedBy)
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted small">Diproses oleh</span>
+                                    <span class="fw-medium small">{{ $billing->payment->processedBy->name }}</span>
+                                </div>
+                            @endif
                         @endif
                     @endif
                 </div>
@@ -1120,15 +1274,25 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                         <label class="form-label text-muted small fw-semibold mb-2">
                             Tambahan Durasi (Jam)
                         </label>
+                        {{-- Tombol pilih jam --}}
+                        <div class="d-flex gap-2 flex-wrap mb-2">
+                            @foreach([1,2,3,4,5] as $h)
+                                <button type="button"
+                                    class="btn flex-fill {{ (int)$extendHours === $h ? 'btn-primary' : 'btn-outline-secondary' }}"
+                                    wire:click="$set('extendHours', {{ $h }})">
+                                    {{ $h }} Jam
+                                </button>
+                            @endforeach
+                        </div>
                         <div class="input-group mb-1">
                             <button class="btn btn-outline-secondary" type="button"
-                                @click="$wire.set('extendHours', Math.max(0.5, {{ $extendHours }} - 0.5))">
+                                @click="$wire.set('extendHours', Math.max(1, {{ (int)$extendHours }} - 1))">
                                 <i class="fa-solid fa-minus"></i>
                             </button>
                             <input type="number" class="form-control text-center fw-bold fs-4"
-                                wire:model.live="extendHours" step="0.5" min="0.5" readonly>
+                                wire:model.live="extendHours" step="1" min="1" readonly>
                             <button class="btn btn-outline-secondary" type="button"
-                                @click="$wire.set('extendHours', {{ $extendHours }} + 0.5)">
+                                @click="$wire.set('extendHours', {{ (int)$extendHours }} + 1)">
                                 <i class="fa-solid fa-plus"></i>
                             </button>
                         </div>
@@ -1137,14 +1301,25 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
                         @enderror
 
                         @if($billing->scheduled_end_at)
+                            @php
+                                $pkg2     = $billing->package;
+                                $pricing2 = $billing->pricing;
+                                $extraCost = (int)$extendHours * (float)($pricing2?->price_per_hour ?? 0);
+                            @endphp
                             <div class="text-center bg-light rounded-3 p-3 mt-3 border">
                                 <div class="text-muted small mb-1">Batas Waktu Baru</div>
                                 <div class="fw-bold fs-2 text-primary lh-1">
-                                    {{ $billing->scheduled_end_at->copy()->addMinutes((int)($extendHours * 60))->format('H:i') }}
+                                    {{ $billing->scheduled_end_at->copy()->addHours((int)$extendHours)->format('H:i') }}
                                 </div>
                                 <div class="text-muted small mt-1">
-                                    {{ $billing->scheduled_end_at->copy()->addMinutes((int)($extendHours * 60))->format('d M Y') }}
+                                    {{ $billing->scheduled_end_at->copy()->addHours((int)$extendHours)->format('d M Y') }}
                                 </div>
+                                @if($extraCost > 0)
+                                    <div class="mt-2 small fw-semibold text-warning">
+                                        <i class="fa-solid fa-plus me-1"></i>
+                                        Biaya extra: Rp {{ number_format($extraCost, 0, ',', '.') }}
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -1176,51 +1351,171 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
     {{-- MODAL: KONFIRMASI SELESAIKAN PERMAINAN                    --}}
     {{-- ══════════════════════════════════════════════════════════ --}}
     @if($showFinishModal)
-        <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content border-0 shadow">
+        <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.55);">
+            <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+                <div class="modal-content border-0 shadow-lg">
+
+                    {{-- Header --}}
                     <div class="modal-header border-0 pb-0">
                         <h5 class="modal-title text-danger fw-semibold">
-                            <i class="fa-solid fa-stop-circle me-2"></i>
-                            Selesaikan Permainan
+                            <i class="fa-solid fa-cash-register me-2"></i>
+                            Selesaikan & Proses Pembayaran
                         </h5>
                         <button type="button" class="btn-close"
                             @click="$wire.set('showFinishModal', false)"></button>
                     </div>
-                    <div class="modal-body pt-2">
-                        <p class="text-muted mb-3">
-                            Billing <strong class="font-monospace">{{ $billing->billing_code }}</strong>
-                            akan diselesaikan. Meja akan dikosongkan dan total tagihan dihitung secara final.
-                        </p>
-                        <div class="p-3 rounded-3 bg-light border text-center">
-                            <div class="text-muted small mb-1">Estimasi Total Tagihan</div>
+
+                    <div class="modal-body pt-2 px-4">
+
+                        {{-- Ringkasan tagihan --}}
+                        <div class="p-3 rounded-3 bg-success bg-opacity-10 border border-success-subtle text-center mb-4">
+                            <div class="text-muted small mb-1">Total Tagihan Final</div>
                             <div class="fw-bold fs-2 text-success lh-1">
                                 {{ $billing->formatted_current_total }}
                             </div>
                             @if($billing->elapsed_formatted)
                                 <div class="text-muted small mt-2">
-                                    Durasi berjalan: <strong>{{ $billing->elapsed_formatted }}</strong>
+                                    Durasi: <strong>{{ $billing->elapsed_formatted }}</strong>
                                 </div>
                             @endif
                         </div>
+
+                        {{-- Pilih Metode Pembayaran --}}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small text-muted mb-2">
+                                <i class="fa-solid fa-wallet me-1"></i> METODE PEMBAYARAN
+                            </label>
+                            <div class="d-flex gap-2">
+
+                                {{-- Cash --}}
+                                <label class="flex-fill" style="cursor:pointer;">
+                                    <input type="radio" wire:model.live="paymentMethod" value="cash" class="d-none">
+                                    <div class="border rounded-3 text-center py-2 px-1 h-100 d-flex flex-column align-items-center justify-content-center gap-1
+                                        {{ $paymentMethod === 'cash' ? 'border-success bg-success-subtle' : 'bg-light' }}"
+                                        style="transition:all .15s;">
+                                        <i class="fa-solid fa-money-bill-wave fs-5 {{ $paymentMethod === 'cash' ? 'text-success' : 'text-muted' }}"></i>
+                                        <div class="small fw-semibold {{ $paymentMethod === 'cash' ? 'text-success' : 'text-muted' }}">Cash</div>
+                                    </div>
+                                </label>
+
+                                {{-- Transfer --}}
+                                <label class="flex-fill" style="cursor:pointer;">
+                                    <input type="radio" wire:model.live="paymentMethod" value="transfer" class="d-none">
+                                    <div class="border rounded-3 text-center py-2 px-1 h-100 d-flex flex-column align-items-center justify-content-center gap-1
+                                        {{ $paymentMethod === 'transfer' ? 'border-primary bg-primary-subtle' : 'bg-light' }}"
+                                        style="transition:all .15s;">
+                                        <i class="fa-solid fa-building-columns fs-5 {{ $paymentMethod === 'transfer' ? 'text-primary' : 'text-muted' }}"></i>
+                                        <div class="small fw-semibold {{ $paymentMethod === 'transfer' ? 'text-primary' : 'text-muted' }}">Transfer</div>
+                                    </div>
+                                </label>
+
+                                {{-- QRIS --}}
+                                <label class="flex-fill" style="cursor:pointer;">
+                                    <input type="radio" wire:model.live="paymentMethod" value="qris" class="d-none">
+                                    <div class="border rounded-3 text-center py-2 px-1 h-100 d-flex flex-column align-items-center justify-content-center gap-1
+                                        {{ $paymentMethod === 'qris' ? 'border-info bg-info-subtle' : 'bg-light' }}"
+                                        style="transition:all .15s;">
+                                        <i class="fa-solid fa-qrcode fs-5 {{ $paymentMethod === 'qris' ? 'text-info' : 'text-muted' }}"></i>
+                                        <div class="small fw-semibold {{ $paymentMethod === 'qris' ? 'text-info' : 'text-muted' }}">QRIS</div>
+                                    </div>
+                                </label>
+
+                            </div>
+                            @error('paymentMethod')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        {{-- Input Nominal (hanya Cash) --}}
+                        @if($paymentMethod === 'cash')
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-muted mb-1">
+                                    <i class="fa-solid fa-hand-holding-dollar me-1"></i> UANG DITERIMA
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text fw-semibold">Rp</span>
+                                    <input type="number"
+                                        wire:model.live="amountPaid"
+                                        class="form-control form-control-lg fw-bold text-end {{ $errors->has('amountPaid') ? 'is-invalid' : '' }}"
+                                        placeholder="0"
+                                        min="0"
+                                        step="1000"
+                                        id="amountPaidInput">
+                                </div>
+                                @error('amountPaid')
+                                    <div class="text-danger small mt-1">{{ $message }}</div>
+                                @enderror
+
+                                {{-- Tombol cepat nominal --}}
+                                @php
+                                    $total = (int) $billing->current_total;
+                                    $quickAmounts = [
+                                        $total,
+                                        (int)(ceil($total / 10000) * 10000),
+                                        (int)(ceil($total / 50000) * 50000),
+                                        (int)(ceil($total / 100000) * 100000),
+                                    ];
+                                    $quickAmounts = array_unique(array_filter($quickAmounts, fn($v) => $v >= $total));
+                                    sort($quickAmounts);
+                                    $quickAmounts = array_slice($quickAmounts, 0, 4);
+                                @endphp
+                                <div class="d-flex gap-1 flex-wrap mt-2">
+                                    @foreach($quickAmounts as $qa)
+                                        <button type="button"
+                                            class="btn btn-sm {{ (int)$amountPaid === $qa ? 'btn-success' : 'btn-outline-secondary' }}"
+                                            wire:click="$set('amountPaid', {{ $qa }})">
+                                            Rp {{ number_format($qa, 0, ',', '.') }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            {{-- Kembalian --}}
+                            <div class="p-3 rounded-3 {{ $this->isAmountSufficient ? 'bg-warning bg-opacity-10 border border-warning-subtle' : 'bg-danger bg-opacity-10 border border-danger-subtle' }} text-center">
+                                @if($this->isAmountSufficient)
+                                    <div class="text-muted small mb-1">Kembalian</div>
+                                    <div class="fw-bold fs-3 text-warning">
+                                        Rp {{ number_format($this->changeAmount, 0, ',', '.') }}
+                                    </div>
+                                @else
+                                    <div class="text-danger small fw-semibold">
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                        Uang kurang
+                                        Rp {{ number_format($billing->current_total - $amountPaid, 0, ',', '.') }}
+                                    </div>
+                                @endif
+                            </div>
+                        @else
+                            {{-- Transfer/QRIS: langsung lunas --}}
+                            <div class="p-3 rounded-3 bg-primary bg-opacity-10 border border-primary-subtle text-center">
+                                <i class="fa-solid fa-circle-check text-primary fs-4 mb-1 d-block"></i>
+                                <div class="text-primary small fw-semibold">
+                                    {{ $paymentMethod === 'qris' ? 'QRIS' : 'Transfer' }} — Pembayaran dianggap lunas otomatis.
+                                </div>
+                            </div>
+                        @endif
+
                     </div>
-                    <div class="modal-footer border-0 px-4 pb-4 gap-2">
-                        <button class="btn btn-secondary flex-fill"
+
+                    <div class="modal-footer border-0 px-4 pb-4 gap-2 mt-2">
+                        <button class="btn btn-light flex-fill"
                             @click="$wire.set('showFinishModal', false)">
                             Batal
                         </button>
                         <button class="btn btn-danger flex-fill fw-semibold"
                             wire:click="finishBilling"
                             wire:loading.attr="disabled"
-                            wire:target="finishBilling">
+                            wire:target="finishBilling"
+                            {{ ($paymentMethod === 'cash' && !$this->isAmountSufficient && $amountPaid > 0) ? 'disabled' : '' }}>
                             <span wire:loading.remove wire:target="finishBilling">
-                                <i class="fa-solid fa-stop me-1"></i> Ya, Selesaikan
+                                <i class="fa-solid fa-check me-1"></i> Selesaikan & Bayar
                             </span>
                             <span wire:loading wire:target="finishBilling">
                                 <span class="spinner-border spinner-border-sm me-1"></span> Memproses...
                             </span>
                         </button>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -1228,3 +1523,55 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
 
 
 </div>
+
+{{-- ── ELAPSED TIMER (per-detik, client-side) ────────────────── --}}
+@if($billing->isActive())
+<script>
+(function () {
+    var el = document.getElementById('elapsed-timer');
+    if (!el) return;
+
+    var seconds = parseInt(el.getAttribute('data-elapsed-seconds') || '0', 10);
+    var capped   = el.getAttribute('data-capped') === '1';
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function fmt(s) {
+        return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor((s % 3600) / 60)) + ':' + pad(s % 60);
+    }
+
+    // Jika waktu sudah dikunci (melewati scheduled_end_at), jangan tambah detik
+    if (!capped) {
+        var timer = setInterval(function () {
+            seconds++;
+            if (el) {
+                el.textContent = fmt(seconds);
+            } else {
+                clearInterval(timer);
+            }
+        }, 1000);
+
+        // Bersihkan interval saat Livewire merender ulang komponen
+        document.addEventListener('livewire:navigating', function () { clearInterval(timer); });
+        Livewire.hook('commit', function ({ component, commit, respond, succeed, fail }) {
+            succeed(function ({ snapshot, effect }) {
+                clearInterval(timer);
+                // Re-sync seconds dari server setelah Livewire update
+                el = document.getElementById('elapsed-timer');
+                if (!el) return;
+                seconds = parseInt(el.getAttribute('data-elapsed-seconds') || seconds, 10);
+                capped  = el.getAttribute('data-capped') === '1';
+                if (!capped) {
+                    timer = setInterval(function () {
+                        seconds++;
+                        if (el) el.textContent = fmt(seconds);
+                        else clearInterval(timer);
+                    }, 1000);
+                } else {
+                    if (el) el.textContent = fmt(seconds);
+                }
+            });
+        });
+    }
+})();
+</script>
+@endif

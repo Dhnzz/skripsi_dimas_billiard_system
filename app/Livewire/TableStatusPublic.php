@@ -24,9 +24,13 @@ class TableStatusPublic extends Component
         $tables = Table::where('is_active', true)
             ->orderBy('table_number')
             ->with([
-                // Load billing yang sedang aktif saja (eager loading)
-                'billing' => function ($query) {
-                    $query->with(['customer', 'package'])->where('status', 'active');
+                // Billing aktif (sudah defined sebagai hasOne scoped di Table model)
+                'activeBilling.package',
+                'activeBilling.customer',
+                // Booking confirmed hari ini (untuk status meja jika billing belum dimulai)
+                'bookings' => function ($query) {
+                    $query->where('status', 'confirmed')
+                          ->whereDate('scheduled_date', today());
                 },
             ])
             ->get()
@@ -34,12 +38,24 @@ class TableStatusPublic extends Component
                 // Hitung data tambahan untuk setiap meja
                 $billing = $table->activeBilling;
 
+                // Sumber kebenaran status realtime:
+                // Meja = 'occupied' jika ada billing aktif ATAU ada booking confirmed hari ini
+                // (booking confirmed hari ini → meja sudah dipesan, walau billing belum dimulai)
+                $hasConfirmedToday = $table->bookings
+                    ->where('status', 'confirmed')
+                    ->filter(fn($b) => $b->scheduled_date?->isToday())
+                    ->isNotEmpty();
+
+                $realtimeStatus = ($billing !== null || $hasConfirmedToday)
+                    ? 'occupied'
+                    : $table->status;
+
                 return [
                     'id'           => $table->id,
                     'table_number' => $table->table_number,
                     'name'         => $table->name,
                     'description'  => $table->description,
-                    'status'       => $table->status,
+                    'status'       => $realtimeStatus,
 
                     // Data billing jika meja sedang occupied
                     'billing' => $billing ? [

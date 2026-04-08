@@ -114,6 +114,12 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Booking', 'breadcrumbs' => [[
             'confirmed_by' => auth()->id(),
             'confirmed_at' => now(),
         ]);
+
+        // Jika booking untuk hari ini → langsung tandai meja occupied
+        if ($booking->scheduled_date?->isToday()) {
+            $booking->table?->update(['status' => 'occupied']);
+        }
+
         $this->dispatch('notify', message: "Booking {$booking->booking_code} berhasil dikonfirmasi!", type: 'success');
     }
 
@@ -264,7 +270,7 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Booking', 'breadcrumbs' => [[
                                             {{-- Detail --}}
                                             <a class="btn btn-sm btn-icon btn-info rounded-circle"
                                                 title="Lihat Detail"
-                                                href="{{ route('owner.booking.show', $booking->id) }}" wire:navigate>
+                                                href="{{ auth()->user()->hasRole('owner') ? route('owner.booking.show', $booking->id) : route('kasir.booking.show', $booking->id) }}" wire:navigate>
                                                 <span class="btn-inner"><i class="fa-solid fa-eye"></i></span>
                                             </a>
 

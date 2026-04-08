@@ -193,8 +193,8 @@
                         </div>
 
                         @auth
-                            @role('pelanggan')
-                                <a href="{{ route('pelanggan.booking.create', ['table' => $meja['id']]) }}"
+                            @role('member')
+                                <a href="{{ route('member.booking.create') }}"
                                     class="card-book-btn">
                                     + Booking Meja Ini
                                 </a>

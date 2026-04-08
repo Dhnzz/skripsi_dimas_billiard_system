@@ -146,30 +146,47 @@ class Billing extends Model
     /** Total sementara untuk billing yang masih aktif */
     public function getCurrentTotalAttribute(): float
     {
-        if ($this->grand_total !== null) {
+        // Gunakan grand_total final hanya saat billing sudah selesai.
+        // Tidak bisa pakai (grand_total !== null) karena kolom default 0 di DB bukan null.
+        if ($this->isCompleted()) {
             return (float) $this->grand_total;
         }
 
         $package = $this->package;
-        $pricing = $this->pricing;
-        
-        // Pembulatan ke bawah (floor) untuk mengabaikan kelebihan menit, minimum 1 jam.
-        $elapsedHours = max(1, floor($this->elapsed_seconds / 3600));
+        // Fallback: jika billing tidak punya pricing_id langsung (mis. paket normal),
+        // gunakan pricing dari package (untuk perhitungan extra jam / paket loss)
+        $pricing = $this->pricing ?? $package?->pricing;
+
+        // Minimum 1 jam — pembulatan ke bawah (floor) mengabaikan kelebihan menit
+        $elapsedHours = max(1, (int) floor($this->elapsed_seconds / 3600));
+
+        $base  = 0;
+        $extra = 0;
 
         if (!$package) {
-            // Tanpa paket: hitung dari harga/jam
-            $base = $elapsedHours * ($pricing?->price_per_hour ?? 0);
+            // Tanpa paket: hitung dari harga/jam (actual elapsed)
+            $base = $elapsedHours * (float)($pricing?->price_per_hour ?? 0);
         } elseif ($package->isNormal()) {
             // Paket normal: harga fix + extra jam
             $base = (float) $package->price;
-            $extra = max(0, $elapsedHours - $package->duration_hours)
-                * ($pricing?->price_per_hour ?? 0);
+
+            if ($this->isActive() && $this->scheduled_end_at) {
+                // Billing aktif: gunakan jam yang direncanakan (scheduled) agar
+                // perpanjangan waktu langsung terrefleksi di total tagihan
+                $plannedHours = (int) $this->started_at->diffInHours($this->scheduled_end_at);
+                $extraHrs     = max(0, $plannedHours - (int)$package->duration_hours);
+            } else {
+                // Billing selesai atau tanpa jadwal: pakai actual elapsed
+                $extraHrs = max(0, $elapsedHours - (int)$package->duration_hours);
+            }
+
+            $extra = $extraHrs * (float)($pricing?->price_per_hour ?? 0);
         } else {
-            // Paket loss: semua dihitung per jam
-            $base = $elapsedHours * ($pricing?->price_per_hour ?? 0);
+            // Paket loss: dihitung per jam dari awal (actual elapsed)
+            $base = $elapsedHours * (float)($pricing?->price_per_hour ?? 0);
         }
 
-        return round($base + (float)$this->addon_total - (float)$this->discount_amount, 2);
+        return round($base + $extra + (float)$this->addon_total - (float)$this->discount_amount, 2);
     }
 
     public function getFormattedCurrentTotalAttribute(): string

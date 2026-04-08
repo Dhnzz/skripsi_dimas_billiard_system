@@ -44,6 +44,38 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
             ->get();
     }
 
+    /**
+     * Semua meja aktif beserta status realtime untuk ditampilkan di step 1.
+     * Status realtime ditentukan dari billing aktif ATAU booking confirmed hari ini.
+     */
+    public function getAllTablesProperty()
+    {
+        return Table::where('is_active', true)
+            ->with([
+                'activeBilling.package',
+                'bookings' => fn($q) => $q->where('status', 'confirmed')->whereDate('scheduled_date', today()),
+            ])
+            ->orderBy('table_number')
+            ->get()
+            ->map(function ($tbl) {
+                // Sumber kebenaran:
+                // 1. Ada billing aktif → pasti occupied
+                // 2. Ada booking confirmed hari ini → occupied (meja sudah dipesan untuk hari ini)
+                // 3. maintenance → maintenance
+                // 4. lainnya → available
+                $hasActiveBilling    = $tbl->activeBilling !== null;
+                $hasConfirmedToday   = $tbl->bookings->isNotEmpty();
+
+                $realtimeStatus = ($hasActiveBilling || $hasConfirmedToday)
+                    ? 'occupied'
+                    : $tbl->status;
+
+                $tbl->realtime_status = $realtimeStatus;
+                $tbl->is_bookable     = $realtimeStatus === 'available';
+                return $tbl;
+            });
+    }
+
     public function getAvailablePackagesProperty()
     {
         return Package::where('is_active', true)
@@ -55,8 +87,26 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
 
     public function selectTable($tableId)
     {
+        $table = Table::find($tableId);
+
+        // Guard server-side: cek ulang status realtime meja
+        if (!$table || !$table->is_active) {
+            $this->addError('table_id', 'Meja tidak ditemukan atau sudah tidak aktif.');
+            return;
+        }
+
+        // Periksa billing aktif realtme (sumber kebenaran)
+        $hasActiveBilling = \App\Models\Billing::where('table_id', $tableId)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($hasActiveBilling || $table->status !== 'available') {
+            $this->addError('table_id', 'Meja ini sedang terpakai atau dalam perbaikan. Silakan pilih meja lain.');
+            return;
+        }
+
         $this->table_id      = $tableId;
-        $this->selectedTable = Table::find($tableId);
+        $this->selectedTable = $table;
         $this->step          = 2;
     }
 
@@ -231,29 +281,117 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
         <div class="booking-card">
             <div class="booking-card-header">
                 <h5 class="mb-0"><i class="fa-solid fa-circle-dot me-2 text-success"></i>Pilih Meja</h5>
-                <small class="text-muted">Hanya menampilkan meja yang tersedia saat ini</small>
+                <small class="text-muted">Pilih meja yang <span class="text-success fw-semibold">Tersedia</span> untuk dibooking</small>
             </div>
             <div class="booking-card-body">
-                @if ($this->availableTables->isEmpty())
+                @error('table_id')
+                    <div class="alert alert-danger py-2 mb-3" style="border-radius:8px;font-size:.85rem;">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> {{ $message }}
+                    </div>
+                @enderror
+
+                @if ($this->allTables->isEmpty())
                     <div class="text-center py-5 text-muted">
                         <i class="fa-solid fa-circle-xmark fa-2x mb-3" style="color:#ff4444;"></i>
-                        <p>Tidak ada meja yang tersedia saat ini.<br>Silakan coba lagi nanti.</p>
+                        <p>Tidak ada meja yang terdaftar saat ini.<br>Silakan hubungi admin.</p>
                     </div>
                 @else
+                    {{-- Legend status --}}
+                    <div class="d-flex gap-3 mb-3 flex-wrap">
+                        <span class="d-flex align-items-center gap-1" style="font-size:.78rem;">
+                            <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
+                            <span class="text-muted">Tersedia</span>
+                        </span>
+                        <span class="d-flex align-items-center gap-1" style="font-size:.78rem;">
+                            <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
+                            <span class="text-muted">Sedang Terpakai</span>
+                        </span>
+                        <span class="d-flex align-items-center gap-1" style="font-size:.78rem;">
+                            <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+                            <span class="text-muted">Dalam Perbaikan</span>
+                        </span>
+                    </div>
+
                     <div class="row g-3">
-                        @foreach ($this->availableTables as $tbl)
+                        @foreach ($this->allTables as $tbl)
+                            @php
+                                $realtimeStatus = $tbl->realtime_status;  // 'available' | 'occupied' | 'maintenance'
+                                $isAvailable    = $tbl->is_bookable;      // true hanya jika benar-benar bisa dipilih
+                                $isOccupied     = $realtimeStatus === 'occupied';
+                                $isMaintenance  = $realtimeStatus === 'maintenance';
+                                $activeBilling  = $tbl->activeBilling;
+                            @endphp
                             <div class="col-md-6 col-lg-4">
-                                <div class="table-option-card {{ $table_id == $tbl->id ? 'selected' : '' }}"
-                                    wire:click="selectTable({{ $tbl->id }})"
-                                    style="cursor:pointer;">
+                                <div class="table-option-card
+                                    {{ $table_id == $tbl->id ? 'selected' : '' }}
+                                    {{ !$isAvailable ? 'table-card-disabled' : '' }}"
+                                    @if($isAvailable) wire:click="selectTable({{ $tbl->id }})" style="cursor:pointer;" @else style="cursor:not-allowed; opacity:.65;" @endif>
+
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <div class="table-number-badge">{{ $tbl->table_number }}</div>
-                                        <span class="status-available">Tersedia</span>
+
+                                        {{-- Badge status --}}
+                                        @if($isAvailable)
+                                            <span class="status-available">
+                                                <i class="fa-solid fa-circle" style="font-size:.45rem;vertical-align:middle;"></i>
+                                                Tersedia
+                                            </span>
+                                        @elseif($isOccupied)
+                                            <span style="
+                                                background:rgba(239,68,68,.12);
+                                                color:#ef4444;
+                                                border:1px solid rgba(239,68,68,.25);
+                                                font-size:.7rem;
+                                                font-weight:600;
+                                                padding:.2rem .6rem;
+                                                border-radius:100px;
+                                                display:flex;align-items:center;gap:.3rem;
+                                            ">
+                                                <i class="fa-solid fa-circle" style="font-size:.45rem;"></i>
+                                                Terpakai
+                                            </span>
+                                        @else
+                                            <span style="
+                                                background:rgba(245,158,11,.12);
+                                                color:#f59e0b;
+                                                border:1px solid rgba(245,158,11,.25);
+                                                font-size:.7rem;
+                                                font-weight:600;
+                                                padding:.2rem .6rem;
+                                                border-radius:100px;
+                                                display:flex;align-items:center;gap:.3rem;
+                                            ">
+                                                <i class="fa-solid fa-wrench" style="font-size:.65rem;"></i>
+                                                Perbaikan
+                                            </span>
+                                        @endif
                                     </div>
+
                                     <div class="fw-semibold">{{ $tbl->name ?? 'Meja ' . $tbl->table_number }}</div>
                                     @if ($tbl->description)
                                         <div class="text-muted small mt-1">{{ $tbl->description }}</div>
                                     @endif
+
+                                    {{-- Info tambahan jika meja sedang terpakai --}}
+                                    @if($isOccupied && $activeBilling)
+                                        <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.07);">
+                                            <div class="text-muted" style="font-size:.72rem;">
+                                                <i class="fa-solid fa-clock me-1" style="color:#ef4444;"></i>
+                                                Mulai: {{ $activeBilling->started_at->format('H:i') }}
+                                                @if($activeBilling->scheduled_end_at)
+                                                    &nbsp;·&nbsp;
+                                                    <i class="fa-solid fa-flag-checkered me-1"></i>
+                                                    Selesai ±{{ $activeBilling->scheduled_end_at->format('H:i') }}
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @elseif($isMaintenance)
+                                        <div class="mt-2" style="font-size:.72rem;color:#f59e0b;">
+                                            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                            Sedang dalam perbaikan
+                                        </div>
+                                    @endif
+
                                 </div>
                             </div>
                         @endforeach

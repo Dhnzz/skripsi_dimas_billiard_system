@@ -64,11 +64,13 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
 
                     <hr>
                     <div class="d-flex justify-content-center gap-2">
+                        @role('owner')
                         <a href="{{ route('owner.meja.edit', $table->id) }}" wire:navigate
                             class="btn btn-sm btn-warning">
                             <i class="fa-solid fa-pen me-1"></i> Edit
                         </a>
-                        <a href="{{ route('owner.meja.index') }}" wire:navigate class="btn btn-sm btn-secondary">
+                        @endrole
+                        <a href="{{ auth()->user()->hasRole('owner') ? route('owner.meja.index') : route('kasir.meja.index') }}" wire:navigate class="btn btn-sm btn-secondary">
                             <i class="fa-solid fa-arrow-left me-1"></i> Kembali
                         </a>
                     </div>

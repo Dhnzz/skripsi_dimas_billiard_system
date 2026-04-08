@@ -707,35 +707,35 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                         </div>
                         @if($previewType === 'normal')
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted small">Paket {{ $previewDuration }} Jam Fix</span>
+                                <span class="text-white small">Paket {{ $previewDuration }} Jam Fix</span>
                                 <span class="fw-bold text-primary fs-5">
                                     Rp {{ number_format($previewPrice, 0, ',', '.') }}
                                 </span>
                             </div>
-                            <div class="text-muted small mt-1">
+                            <div class="text-white small mt-1">
                                 <i class="fa-solid fa-clock me-1"></i>
                                 Waktu berakhir pukul
                                 <strong>{{ now()->addHours($previewDuration)->format('H:i') }}</strong>
                             </div>
                         @elseif($previewType === 'loss')
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted small">Tarif Loss (per jam)</span>
-                                <span class="fw-bold text-warning fs-5">
+                                <span class="text-white small">Tarif Loss (per jam)</span>
+                                <span class="fw-bold text-white fs-5">
                                     Rp {{ number_format($previewPrice, 0, ',', '.') }}/jam
                                 </span>
                             </div>
-                            <div class="text-muted small mt-1">
+                            <div class="text-white small mt-1">
                                 <i class="fa-solid fa-infinity me-1"></i>
                                 Biaya dihitung di akhir sesi
                             </div>
                         @else
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted small">Tarif Per Jam</span>
-                                <span class="fw-bold text-success fs-5">
+                                <span class="text-white small">Tarif Per Jam</span>
+                                <span class="fw-bold text-white fs-5">
                                     Rp {{ number_format($previewPrice, 0, ',', '.') }}/jam
                                 </span>
                             </div>
-                            <div class="text-muted small mt-1">
+                            <div class="text-white small mt-1">
                                 <i class="fa-solid fa-infinity me-1"></i>
                                 Biaya dihitung di akhir sesi
                             </div>
@@ -952,16 +952,16 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                         @if($this->selectedPackage)
                             <div class="d-flex justify-content-between align-items-center p-3 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25">
                                 <div>
-                                    <div class="fw-semibold text-primary">{{ $this->selectedPackage->name }}</div>
-                                    <div class="small text-muted mt-1">
+                                    <div class="fw-semibold text-white">{{ $this->selectedPackage->name }}</div>
+                                    <div class="small text-white mt-1">
                                         @if($this->selectedPackage->isNormal())
-                                            <span class="badge bg-info-subtle text-info border border-info-subtle me-1">
+                                            <span class="badge bg-info-subtle text-white border border-info-subtle me-1">
                                                 <i class="fa-solid fa-clock me-1"></i>{{ (int)$this->selectedPackage->duration_hours }} Jam Fix
                                             </span>
                                             Waktu berakhir pukul
-                                            <strong>{{ now()->addHours((int)$this->selectedPackage->duration_hours)->format('H:i') }}</strong>
+                                            <strong class="text-white">{{ now()->addHours((int)$this->selectedPackage->duration_hours)->format('H:i') }}</strong>
                                         @else
-                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                                            <span class="badge bg-warning-subtle text-white border border-warning-subtle">
                                                 <i class="fa-solid fa-infinity me-1"></i>Waktu Bebas (Loss)
                                             </span>
                                         @endif
@@ -969,15 +969,15 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                                 </div>
                                 <div class="text-end">
                                     @if($this->selectedPackage->isNormal())
-                                        <div class="fw-bold text-primary fs-5">
+                                        <div class="fw-bold text-white fs-5">
                                             Rp {{ number_format((float)$this->selectedPackage->price, 0, ',', '.') }}
                                         </div>
-                                        <div class="small text-muted">harga paket</div>
+                                        <div class="small text-white">harga paket</div>
                                     @else
-                                        <div class="fw-bold text-warning fs-5">
+                                        <div class="fw-bold text-white fs-5">
                                             Rp {{ number_format((float)($this->selectedPackage->pricing?->price_per_hour ?? 0), 0, ',', '.') }}/jam
                                         </div>
-                                        <div class="small text-muted">dihitung di akhir</div>
+                                        <div class="small text-white">dihitung di akhir</div>
                                     @endif
                                 </div>
                             </div>
