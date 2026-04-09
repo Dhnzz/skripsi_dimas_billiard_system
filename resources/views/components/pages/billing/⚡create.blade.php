@@ -31,7 +31,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
     // ── Preview kalkulasi harga (reaktif) ────────────────────
     public ?float  $previewPrice    = null;
     public ?string $previewType     = null;   // 'normal' | 'loss' | 'per_jam'
-    public ?int    $previewDuration = null;
+    public ?float  $previewDuration = null;
 
     // ── Addon sementara (sebelum billing dibuat) ─────────────
     public array $selectedAddons = [];  // [addon_id => qty]
@@ -177,7 +177,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
             if ($pkg->isNormal()) {
                 $this->previewType     = 'normal';
                 $this->previewPrice    = (float) $pkg->price;
-                $this->previewDuration = (int) $pkg->duration_hours;
+                $this->previewDuration = (float) $pkg->duration_hours;
             } else {
                 $this->previewType     = 'loss';
                 $this->previewPrice    = $pkg->pricing ? (float) $pkg->pricing->price_per_hour : null;
@@ -249,7 +249,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
         // Hitung scheduled_end_at (hanya paket normal yang punya batas waktu)
         $scheduledEndAt = null;
         if ($pkg && $pkg->isNormal()) {
-            $scheduledEndAt = $now->copy()->addHours((int) $pkg->duration_hours);
+            $scheduledEndAt = $now->copy()->addHours((float) $pkg->duration_hours);
         }
 
         // Tentukan pricing_id final yang disimpan
@@ -592,7 +592,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                                             <div class="mb-2">
                                                 @if($pkg->isNormal())
                                                     <span class="badge bg-info-subtle text-info border border-info-subtle">
-                                                        <i class="fa-solid fa-clock me-1"></i>{{ (int)$pkg->duration_hours }} Jam Fix
+                                                        <i class="fa-solid fa-clock me-1"></i>{{ (float) $pkg->duration_hours }} Jam Fix
                                                     </span>
                                                 @else
                                                     <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
@@ -715,7 +715,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                             <div class="text-white small mt-1">
                                 <i class="fa-solid fa-clock me-1"></i>
                                 Waktu berakhir pukul
-                                <strong>{{ now()->addHours($previewDuration)->format('H:i') }}</strong>
+                                <strong>{{ now()->addHours((float) $previewDuration)->format('H:i') }}</strong>
                             </div>
                         @elseif($previewType === 'loss')
                             <div class="d-flex justify-content-between align-items-center">
@@ -956,10 +956,10 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                                     <div class="small text-white mt-1">
                                         @if($this->selectedPackage->isNormal())
                                             <span class="badge bg-info-subtle text-white border border-info-subtle me-1">
-                                                <i class="fa-solid fa-clock me-1"></i>{{ (int)$this->selectedPackage->duration_hours }} Jam Fix
+                                                <i class="fa-solid fa-clock me-1"></i>{{ (float) $this->selectedPackage->duration_hours }} Jam Fix
                                             </span>
                                             Waktu berakhir pukul
-                                            <strong class="text-white">{{ now()->addHours((int)$this->selectedPackage->duration_hours)->format('H:i') }}</strong>
+                                            <strong class="text-white">{{ now()->addHours((float) $this->selectedPackage->duration_hours)->format('H:i') }}</strong>
                                         @else
                                             <span class="badge bg-warning-subtle text-white border border-warning-subtle">
                                                 <i class="fa-solid fa-infinity me-1"></i>Waktu Bebas (Loss)

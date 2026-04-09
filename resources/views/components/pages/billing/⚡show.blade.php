@@ -227,7 +227,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             'extendHours.min'      => 'Minimal perpanjangan 1 jam.',
         ]);
 
-        $newEnd = $this->billing->scheduled_end_at->copy()->addHours((int) $this->extendHours);
+        $newEnd = $this->billing->scheduled_end_at->copy()->addHours((float) $this->extendHours);
 
         // Cek konflik booking di meja yang sama
         if ($this->isWalkIn) {

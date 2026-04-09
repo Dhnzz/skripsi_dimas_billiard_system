@@ -27,9 +27,10 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
     public $duration        = 1; // dalam jam
     public $notes           = '';
 
-    // Data untuk tampilan
-    public $selectedTable   = null;
-    public $selectedPackage = null;
+    // Data untuk tampilan — disimpan sebagai array scalar (bukan Eloquent model)
+    // Livewire v4 tidak bisa serialize Eloquent model di public property dengan andal
+    public array $selectedTable   = [];
+    public array $selectedPackage = [];
 
     public function mount()
     {
@@ -95,7 +96,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
             return;
         }
 
-        // Periksa billing aktif realtme (sumber kebenaran)
+        // Periksa billing aktif realtime (sumber kebenaran)
         $hasActiveBilling = \App\Models\Billing::where('table_id', $tableId)
             ->where('status', 'active')
             ->exists();
@@ -105,18 +106,31 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
             return;
         }
 
-        $this->table_id      = $tableId;
-        $this->selectedTable = $table;
-        $this->step          = 2;
+        $this->table_id = $tableId;
+        // Simpan sebagai array scalar — Livewire v4 tidak bisa serialize Eloquent model
+        $this->selectedTable = [
+            'id'           => $table->id,
+            'table_number' => $table->table_number,
+            'name'         => $table->name,
+        ];
+        $this->step = 2;
     }
 
     public function selectPackage($packageId)
     {
-        $this->package_id       = $packageId;
-        $pkg                    = Package::with('pricing')->find($packageId);
-        $this->selectedPackage  = $pkg;
-        $this->pricing_id       = $pkg?->pricing_id;
-        $this->packageType      = $pkg?->type ?? 'tanpa_paket';
+        $pkg = Package::with('pricing')->find($packageId);
+
+        if (!$pkg) {
+            $this->addError('package_id', 'Paket tidak ditemukan.');
+            return;
+        }
+
+        $this->package_id  = $packageId;
+        $this->packageType = $pkg->type;
+
+        // Ambil pricing_id dari paket; jika kosong, fallback ke pricing aktif
+        $this->pricing_id = $pkg->pricing_id
+            ?? Pricing::where('is_active', true)->value('id');
 
         if ($this->packageType === 'normal') {
             $this->duration = (float) $pkg->duration_hours;
@@ -126,6 +140,15 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
             $this->duration = 1;
         }
 
+        // Simpan sebagai array scalar — Livewire v4 tidak bisa serialize Eloquent model
+        $this->selectedPackage = [
+            'id'             => $pkg->id,
+            'name'           => $pkg->name,
+            'type'           => $pkg->type,
+            'formatted_price' => $pkg->formatted_price,
+            'duration_hours' => $pkg->duration_hours,
+        ];
+
         $this->step = 3;
     }
 
@@ -133,7 +156,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
     {
         $pricing = Pricing::where('is_active', true)->first();
         $this->package_id      = null;
-        $this->selectedPackage = null;
+        $this->selectedPackage = [];  // array kosong
         $this->pricing_id      = $pricing?->id;
         $this->packageType     = 'tanpa_paket';
         $this->duration        = 1;
@@ -142,8 +165,11 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
 
     public function goToStep4()
     {
+        // min input di form = besok, jadi validasi server harus konsisten
+        $tomorrow = now()->addDay()->format('Y-m-d');
+
         $rules = [
-            'scheduled_date'  => ['required', 'date', 'after_or_equal:today'],
+            'scheduled_date'  => ['required', 'date', 'after_or_equal:' . $tomorrow],
             'scheduled_start' => ['required'],
         ];
 
@@ -152,12 +178,12 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
         }
 
         $this->validate($rules, [
-            'scheduled_date.required' => 'Tanggal harus diisi',
-            'scheduled_date.after_or_equal' => 'Tanggal tidak boleh sebelum hari ini',
-            'scheduled_start.required' => 'Jam mulai harus diisi',
-            'duration.required' => 'Durasi harus diisi',
-            'duration.min' => 'Durasi minimal 0.5 jam',
-            'duration.numeric' => 'Durasi harus berupa angka',
+            'scheduled_date.required'       => 'Tanggal harus diisi',
+            'scheduled_date.after_or_equal' => 'Tanggal booking minimal besok',
+            'scheduled_start.required'      => 'Jam mulai harus diisi',
+            'duration.required'             => 'Durasi harus diisi',
+            'duration.min'                  => 'Durasi minimal 0.5 jam',
+            'duration.numeric'              => 'Durasi harus berupa angka',
         ]);
 
         // --- VALIDASI KONFLIK BOOKING ---
@@ -281,7 +307,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
         <div class="booking-card">
             <div class="booking-card-header">
                 <h5 class="mb-0"><i class="fa-solid fa-circle-dot me-2 text-success"></i>Pilih Meja</h5>
-                <small class="text-muted">Pilih meja yang <span class="text-success fw-semibold">Tersedia</span> untuk dibooking</small>
+                <small class="text-white">Pilih meja yang <span class="text-success fw-semibold">Tersedia</span> untuk dibooking</small>
             </div>
             <div class="booking-card-body">
                 @error('table_id')
@@ -300,15 +326,15 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
                     <div class="d-flex gap-3 mb-3 flex-wrap">
                         <span class="d-flex align-items-center gap-1" style="font-size:.78rem;">
                             <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
-                            <span class="text-muted">Tersedia</span>
+                            <span class="text-success">Tersedia</span>
                         </span>
                         <span class="d-flex align-items-center gap-1" style="font-size:.78rem;">
                             <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
-                            <span class="text-muted">Sedang Terpakai</span>
+                            <span class="text-danger">Sedang Terpakai</span>
                         </span>
                         <span class="d-flex align-items-center gap-1" style="font-size:.78rem;">
                             <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
-                            <span class="text-muted">Dalam Perbaikan</span>
+                            <span class="text-warning">Dalam Perbaikan</span>
                         </span>
                     </div>
 
@@ -328,7 +354,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
                                     @if($isAvailable) wire:click="selectTable({{ $tbl->id }})" style="cursor:pointer;" @else style="cursor:not-allowed; opacity:.65;" @endif>
 
                                     <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div class="table-number-badge">{{ $tbl->table_number }}</div>
+                                        <div class="table-number-badge text-success">{{ $tbl->table_number }}</div>
 
                                         {{-- Badge status --}}
                                         @if($isAvailable)
@@ -369,13 +395,13 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
 
                                     <div class="fw-semibold">{{ $tbl->name ?? 'Meja ' . $tbl->table_number }}</div>
                                     @if ($tbl->description)
-                                        <div class="text-muted small mt-1">{{ $tbl->description }}</div>
+                                        <div class="text-white small mt-1">{{ $tbl->description }}</div>
                                     @endif
 
                                     {{-- Info tambahan jika meja sedang terpakai --}}
                                     @if($isOccupied && $activeBilling)
                                         <div class="mt-2 pt-2" style="border-top:1px solid rgba(255,255,255,.07);">
-                                            <div class="text-muted" style="font-size:.72rem;">
+                                            <div class="text-white" style="font-size:.72rem;">
                                                 <i class="fa-solid fa-clock me-1" style="color:#ef4444;"></i>
                                                 Mulai: {{ $activeBilling->started_at->format('H:i') }}
                                                 @if($activeBilling->scheduled_end_at)
@@ -406,8 +432,8 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
         <div class="booking-card">
             <div class="booking-card-header">
                 <h5 class="mb-0"><i class="fa-solid fa-box-open me-2 text-warning"></i>Pilih Paket</h5>
-                <small class="text-muted">
-                    Meja dipilih: <span class="text-white fw-bold">{{ $selectedTable?->table_number }}</span>
+                <small class="text-white">
+                    Meja dipilih: <span class="text-white fw-bold">{{ $selectedTable['table_number'] ?? '-' }}</span>
                 </small>
             </div>
             <div class="booking-card-body">
@@ -456,8 +482,8 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
         <div class="booking-card">
             <div class="booking-card-header">
                 <h5 class="mb-0"><i class="fa-solid fa-calendar-days me-2 text-primary"></i>Tentukan Jadwal</h5>
-                <small class="text-muted">
-                    Paket: <span class="text-white fw-bold">{{ $selectedPackage?->name ?? 'Tanpa Paket' }}</span>
+                <small class="text-white">
+                    Paket: <span class="text-white fw-bold">{{ $selectedPackage['name'] ?? 'Tanpa Paket' }}</span>
                 </small>
             </div>
             <div class="booking-card-body">
@@ -499,7 +525,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
                                 <span class="error-msg">{{ $message }}</span>
                             @enderror
                             @if($scheduled_start && $duration)
-                                <div class="text-muted small mt-2">
+                                <div class="text-white small mt-2">
                                     <i class="fa-solid fa-clock me-1"></i> Jam Selesai Terestimasi: <strong class="text-white ms-1">{{ $this->calculated_scheduled_end }}</strong>
                                 </div>
                             @endif
@@ -513,7 +539,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
                     </div>
                     
                     <div class="col-12 mt-2">
-                        <label class="form-label-custom">Catatan <span class="text-muted">(opsional)</span></label>
+                        <label class="form-label-custom">Catatan (opsional)</label>
                         <textarea class="form-input-custom" wire:model="notes"
                             rows="2" placeholder="Permintaan khusus, jumlah pemain, dll."></textarea>
                     </div>
@@ -540,12 +566,12 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
                 <div class="confirm-grid">
                     <div class="confirm-item">
                         <div class="confirm-label">Meja</div>
-                        <div class="confirm-value">Meja {{ $selectedTable?->table_number }}</div>
+                        <div class="confirm-value">Meja {{ $selectedTable['table_number'] ?? '-' }}</div>
                     </div>
                     <div class="confirm-item">
                         <div class="confirm-label">Paket</div>
                         <div class="confirm-value">
-                            {{ $selectedPackage ? $selectedPackage->name . ' (' . $selectedPackage->formatted_price . ')' : 'Tanpa Paket (tarif per jam)' }}
+                            {{ !empty($selectedPackage) ? ($selectedPackage['name'] . ' (' . $selectedPackage['formatted_price'] . ')') : 'Tanpa Paket (tarif per jam)' }}
                         </div>
                     </div>
                     <div class="confirm-item">
@@ -560,10 +586,10 @@ new #[Layout('layouts.member-booking', ['title' => 'Buat Booking'])] class exten
                             {{ \Carbon\Carbon::parse($scheduled_start)->format('H:i') }}
                             @if($packageType !== 'loss' && $duration)
                                 &ndash; {{ $this->calculated_scheduled_end }}
-                                <span class="text-muted small ms-1">({{ $duration }} Jam)</span>
+                                <span class="text-white small ms-1">({{ $duration }} Jam)</span>
                             @else
                                 &ndash; Selesai
-                                <span class="text-muted small ms-1">(Loss)</span>
+                                <span class="text-white small ms-1">(Loss)</span>
                             @endif
                         </div>
                     </div>

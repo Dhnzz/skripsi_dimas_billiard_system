@@ -211,7 +211,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
         $scheduledEndAt = null;
 
         if ($this->booking->package && $this->booking->package->type === 'normal') {
-            $scheduledEndAt = $now->copy()->addHours($this->booking->package->duration_hours);
+            $scheduledEndAt = $now->copy()->addHours((float) $this->booking->package->duration_hours);
         } else {
             if ($this->booking->scheduled_end) {
                 // Konversi string "H:i:s" ke waktu dengan aman hari ini
