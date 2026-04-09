@@ -13,7 +13,13 @@ class Table extends Model
         'name',
         'description',
         'status',
-        'is_active'
+        'is_active',
+        'device_status',
+    ];
+
+    protected $casts = [
+        'is_active'     => 'boolean',
+        'device_status' => 'boolean',
     ];
 
     public function bookings()

@@ -168,6 +168,10 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Meja', 'breadcrumbs' => [['ti
                                             <i class="fa-solid fa-sort-down ms-1"></i>
                                         @endif
                                     </th>
+                                    {{-- Kolom Lampu --}}
+                                    <th class="text-center">
+                                        <i class="fa-solid fa-lightbulb me-1 text-warning"></i> Lampu
+                                    </th>
                                     <th wire:click="setSortBy('status')" style="cursor: pointer;">
                                         Kondisi Meja
                                         @if ($sortBy !== 'status')
@@ -193,13 +197,36 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Meja', 'breadcrumbs' => [['ti
                             </thead>
                             <tbody>
                                 @forelse ($this->tables as $table)
+                                    @php
+                                        // light_on identik dengan nilai yang dikembalikan API microcontroller:
+                                        // GET /api/microcontroller/table/{id}/light → light_on: true/false
+                                        $lightOn = $table->status === 'occupied';
+                                    @endphp
                                     <tr>
-                                        <td>
-                                            {{ $table->table_number }}
+                                        <td>{{ $table->table_number }}</td>
+                                        <td>{{ $table->name }}</td>
+
+                                        {{-- Indikator Lampu Meja --}}
+                                        <td class="text-center align-middle">
+                                            <div class="d-flex flex-column align-items-center gap-1">
+                                                @if($lightOn)
+                                                    <div class="table-lamp table-lamp-on"
+                                                         data-bs-toggle="tooltip"
+                                                         title="Lampu MENYALA — Sesi sedang berlangsung">
+                                                        <i class="fa-solid fa-lightbulb"></i>
+                                                    </div>
+                                                    <span class="lamp-label lamp-label-on">MENYALA</span>
+                                                @else
+                                                    <div class="table-lamp table-lamp-off"
+                                                         data-bs-toggle="tooltip"
+                                                         title="Lampu MATI — Tidak ada sesi aktif">
+                                                        <i class="fa-regular fa-lightbulb"></i>
+                                                    </div>
+                                                    <span class="lamp-label lamp-label-off">MATI</span>
+                                                @endif
+                                            </div>
                                         </td>
-                                        <td>
-                                            {{ $table->name }}
-                                        </td>
+
                                         <td class="align-middle fw-medium">
                                             @if ($table->status == 'available')
                                                 <span class="badge bg-success">Tersedia</span>
@@ -275,3 +302,47 @@ new #[Layout('layouts.app', ['title' => 'Manajemen Meja', 'breadcrumbs' => [['ti
         </div>
     </div>
 </div>
+
+<style>
+/* ── Indikator Lampu Meja ─────────────────────────────────── */
+.table-lamp {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    transition: all .3s ease;
+}
+
+/* Lampu MENYALA */
+.table-lamp-on {
+    background: #fef3c7;
+    color: #d97706;
+    box-shadow: 0 0 0 3px #fde68a, 0 0 16px 5px #fbbf24aa;
+    animation: lamp-pulse 1.8s ease-in-out infinite;
+}
+
+/* Lampu MATI */
+.table-lamp-off {
+    background: #f3f4f6;
+    color: #9ca3af;
+    box-shadow: none;
+}
+
+/* Label teks di bawah ikon */
+.lamp-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .6px;
+}
+.lamp-label-on  { color: #d97706; }
+.lamp-label-off { color: #9ca3af; }
+
+/* Animasi glow berdenyut */
+@keyframes lamp-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px #fde68a, 0 0 16px 5px #fbbf2488; }
+    50%       { box-shadow: 0 0 0 5px #fde68acc, 0 0 28px 10px #fbbf24cc; }
+}
+</style>

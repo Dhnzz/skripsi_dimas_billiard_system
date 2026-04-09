@@ -5,29 +5,24 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Table;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class TableLightController extends Controller
 {
     /**
-     * Mengembalikan status lampu meja untuk microcontroller.
+     * Status lampu satu meja berdasarkan field device_status.
      *
-     * Endpoint ini dikonsumsi oleh microcontroller di setiap meja billiard.
-     * Microcontroller akan melakukan polling ke endpoint ini secara berkala
-     * untuk menentukan apakah lampu meja harus menyala atau mati.
+     * Field `device_status` di tabel `tables`:
+     *   - true  → billing sedang aktif, lampu MENYALA
+     *   - false → tidak ada billing aktif, lampu MATI
      *
-     * Response:
-     *   - light_on: true  → lampu MENYALA (billing sedang aktif)
-     *   - light_on: false → lampu MATI    (tidak ada billing aktif)
+     * Microcontroller cukup polling endpoint ini dan membaca `light_on`.
      *
-     * @param  int  $tableId  ID meja yang dikueri microcontroller
-     * @return \Illuminate\Http\JsonResponse
+     * GET /api/microcontroller/table/{tableId}/light
      */
     public function status(int $tableId): JsonResponse
     {
         $table = Table::find($tableId);
 
-        // Jika meja tidak ditemukan atau meja tidak aktif
         if (!$table || !$table->is_active) {
             return response()->json([
                 'table_id'  => $tableId,
@@ -36,43 +31,31 @@ class TableLightController extends Controller
             ], 404);
         }
 
-        // Cek apakah ada billing yang sedang aktif di meja ini
-        $hasActiveBilling = $table->activeBilling()->exists();
-
         return response()->json([
-            'table_id'  => $table->id,
-            'light_on'  => $hasActiveBilling,
-            'message'   => $hasActiveBilling
+            'table_id'   => $table->id,
+            'table_name' => $table->name,
+            'light_on'   => (bool) $table->device_status,
+            'message'    => $table->device_status
                 ? 'Billing sedang berjalan. Lampu menyala.'
                 : 'Tidak ada billing aktif. Lampu mati.',
         ]);
     }
 
     /**
-     * Mengembalikan status lampu untuk SEMUA meja sekaligus.
+     * Status lampu semua meja sekaligus (untuk kontroler pusat).
      *
-     * Berguna jika ada satu kontroler pusat yang mengelola semua lampu meja.
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * GET /api/microcontroller/tables/light
      */
     public function statusAll(): JsonResponse
     {
-        $tables = Table::where('is_active', true)
-            ->with(['activeBilling'])
-            ->get();
+        $tables = Table::where('is_active', true)->get();
 
-        $data = $tables->map(function ($table) {
-            $hasActiveBilling = $table->activeBilling !== null;
-
-            return [
-                'table_id'  => $table->id,
-                'table_name'=> $table->name,
-                'light_on'  => $hasActiveBilling,
-            ];
-        });
-
-        return response()->json([
-            'data' => $data,
+        $data = $tables->map(fn ($table) => [
+            'table_id'      => $table->id,
+            'table_name'    => $table->name,
+            'light_on'      => (bool) $table->device_status,
         ]);
+
+        return response()->json(['data' => $data]);
     }
 }

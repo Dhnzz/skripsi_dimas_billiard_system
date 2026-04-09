@@ -9,14 +9,14 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
 
     public function mount($id)
     {
-        $this->table = Table::findOrFail($id);
+        $this->table = Table::with(['activeBilling'])->findOrFail($id);
     }
 };
 ?>
 
 <div>
     <div class="row">
-        {{-- Info Utama --}}
+        {{-- Info Utama + Lampu --}}
         <div class="col-lg-4">
             <div class="card">
                 <div class="card-header">
@@ -25,6 +25,8 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
                     </div>
                 </div>
                 <div class="card-body text-center">
+
+                    {{-- Nomor Meja --}}
                     <div class="mb-3">
                         <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center"
                             style="width: 90px; height: 90px;">
@@ -33,6 +35,23 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
                     </div>
                     <h5 class="mb-1">{{ $table->name }}</h5>
                     <p class="text-muted small mb-3">Nomor: {{ $table->table_number }}</p>
+
+                    {{-- ── Indikator Lampu Meja ─────────────────────── --}}
+                    @php $lightOn = $table->status === 'occupied'; @endphp
+                    <div class="lamp-card mb-4 {{ $lightOn ? 'lamp-card-on' : 'lamp-card-off' }}">
+                        <div class="lamp-icon-wrap {{ $lightOn ? 'lamp-icon-on' : 'lamp-icon-off' }}">
+                            <i class="{{ $lightOn ? 'fa-solid' : 'fa-regular' }} fa-lightbulb"></i>
+                        </div>
+                        <div class="lamp-status-text {{ $lightOn ? 'text-warning' : 'text-muted' }}">
+                            @if($lightOn)
+                                <span class="fw-bold">LAMPU MENYALA</span>
+                                <div class="small mt-1" style="font-size:11px;">Sesi bermain berlangsung</div>
+                            @else
+                                <span class="fw-semibold">LAMPU MATI</span>
+                                <div class="small mt-1" style="font-size:11px;">Tidak ada sesi aktif</div>
+                            @endif
+                        </div>
+                    </div>
 
                     <div class="d-flex justify-content-center gap-2 mb-3">
                         {{-- Badge Kondisi --}}
@@ -76,6 +95,33 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
                     </div>
                 </div>
             </div>
+
+            {{-- ── API Endpoint Microcontroller ────────────── --}}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fa-solid fa-microchip me-2 text-info"></i>
+                        Endpoint Microcontroller
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">
+                        Microcontroller dapat polling URL berikut untuk membaca status lampu meja ini:
+                    </p>
+                    <div class="d-flex align-items-center gap-2 p-2 rounded bg-dark mb-2">
+                        <span class="badge bg-success flex-shrink-0">GET</span>
+                        <code class="text-warning small text-break" style="font-size:11px;">
+                            {{ url('/api/microcontroller/table/' . $table->id . '/light') }}
+                        </code>
+                    </div>
+                    <div class="small text-muted">
+                        <strong>Response saat ini:</strong>
+                        <code class="{{ $lightOn ? 'text-warning' : 'text-muted' }}">
+                            light_on: {{ $lightOn ? 'true' : 'false' }}
+                        </code>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {{-- Detail Info --}}
@@ -107,6 +153,20 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
                                             Tidak Tersedia
                                         @else
                                             Maintenance
+                                        @endif
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium text-muted">Status Lampu</td>
+                                    <td>
+                                        @if($lightOn)
+                                            <span class="text-warning fw-semibold">
+                                                <i class="fa-solid fa-lightbulb me-1"></i>Menyala
+                                            </span>
+                                        @else
+                                            <span class="text-muted">
+                                                <i class="fa-regular fa-lightbulb me-1"></i>Mati
+                                            </span>
                                         @endif
                                     </td>
                                 </tr>
@@ -177,3 +237,56 @@ new #[Layout('layouts.app', ['title' => 'Detail Meja', 'breadcrumbs' => [['title
         </div>
     </div>
 </div>
+
+<style>
+/* ── Lampu Card (halaman detail) ─────────────────────────── */
+.lamp-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 12px;
+    border-radius: 16px;
+    margin: 0 auto;
+    max-width: 200px;
+    transition: all .3s ease;
+}
+.lamp-card-on {
+    background: linear-gradient(135deg, #fef9ec, #fef3c7);
+    border: 2px solid #fde68a;
+    box-shadow: 0 0 24px 6px #fbbf2444;
+}
+.lamp-card-off {
+    background: #f9fafb;
+    border: 2px solid #e5e7eb;
+}
+
+/* Ikon lampu besar */
+.lamp-icon-wrap {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    transition: all .3s ease;
+}
+.lamp-icon-on {
+    background: #fef3c7;
+    color: #d97706;
+    box-shadow: 0 0 0 4px #fde68a, 0 0 20px 8px #fbbf24aa;
+    animation: lamp-pulse-big 1.8s ease-in-out infinite;
+}
+.lamp-icon-off {
+    background: #f3f4f6;
+    color: #9ca3af;
+}
+
+.lamp-status-text { line-height: 1.4; }
+
+@keyframes lamp-pulse-big {
+    0%, 100% { box-shadow: 0 0 0 4px #fde68a, 0 0 20px 8px #fbbf2488; }
+    50%       { box-shadow: 0 0 0 7px #fde68acc, 0 0 34px 14px #fbbf24cc; }
+}
+</style>

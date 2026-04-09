@@ -196,8 +196,8 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             'processed_by'  => auth()->id(),
         ]);
 
-        // Update status meja → available
-        $this->billing->table?->update(['status' => 'available']);
+        // Update status meja: available & device_status OFF (lampu mati)
+        $this->billing->table?->update(['status' => 'available', 'device_status' => false]);
 
         // Update status booking jika ada
         if ($this->billing->booking) {

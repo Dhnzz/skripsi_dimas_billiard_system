@@ -91,7 +91,8 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
 
         $this->booking->update(['status' => 'completed']);
         if ($this->booking->table) {
-            $this->booking->table->update(['status' => 'available']);
+            // Billing selesai: lampu mati
+            $this->booking->table->update(['status' => 'available', 'device_status' => false]);
         }
 
         $this->isTimeUp = false;
@@ -236,7 +237,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
             'started_by'       => auth()->id(),
         ]);
 
-        $this->booking->table->update(['status' => 'occupied']);
+        $this->booking->table->update(['status' => 'occupied', 'device_status' => true]);
         $this->booking->refresh();
         $this->dispatch('notify', message: 'Billing berhasil dibuat & permainan dimulai!', type: 'success');
     }
