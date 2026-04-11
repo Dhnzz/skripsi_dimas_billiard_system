@@ -10,11 +10,6 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
 
     public $showRejectModal   = false;
     public $rejectReason      = '';
-    public $showAddonModal    = false;
-    
-    public $isTimeUp          = false;
-    public $showExtendModal   = false;
-    public $extendHours       = 1;
 
     public function mount($id)
     {
@@ -27,126 +22,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
 
     public function checkBillingTime()
     {
-        $billing = $this->booking->billing;
-        if ($billing && $billing->isActive() && $billing->scheduled_end_at) {
-            if (now()->greaterThanOrEqualTo($billing->scheduled_end_at)) {
-                $this->isTimeUp = true;
-                // Auto finish jika melewati grace period (misal 5 menit dari jadwal habis)
-                if (now()->greaterThanOrEqualTo($billing->scheduled_end_at->copy()->addMinutes(5))) {
-                    $this->finishBilling();
-                    $this->dispatch('notify', message: 'Waktu lewat 5 menit. Billing otomatis diselesaikan!', type: 'info');
-                }
-            } else {
-                $this->isTimeUp = false;
-            }
-        }
-    }
-
-    public function finishBilling()
-    {
-        $billing = $this->booking->billing;
-        if (!$billing || !$billing->isActive()) return;
-
-        $package = $this->booking->package;
-        $pricing = $this->booking->pricing;
-        
-        $end = now();
-        
-        // Hentikan meteran di jadwal akhir batas waktu. Toleransi waktu (5 menit) 
-        // hanya untuk delay auto-finish, bukan untuk menambah beban biaya billing.
-        if ($billing->scheduled_end_at && $end->greaterThan($billing->scheduled_end_at)) {
-            $end = $billing->scheduled_end_at;
-        }
-
-        $elapsedSeconds = $billing->started_at->diffInSeconds($end);
-        
-        // Pembulatan ke bawah (floor) untuk mengabaikan kelebihan menit, minimum 1 jam.
-        $elapsedHours = max(1, floor($elapsedSeconds / 3600));
-
-        if (!$package) {
-            $basePrice = $elapsedHours * ($pricing?->price_per_hour ?? 0);
-            $extraPrice = 0;
-        } elseif ($package->type === 'normal') {
-            $basePrice = (float) $package->price;
-            $extraHrs = max(0, $elapsedHours - $package->duration_hours);
-            $extraPrice = $extraHrs * ($pricing?->price_per_hour ?? 0);
-        } else {
-            $basePrice = $elapsedHours * ($pricing?->price_per_hour ?? 0);
-            $extraPrice = 0;
-        }
-
-        $addonTotal = $billing->confirmedAddons()->sum('subtotal');
-        $grandTotal = $basePrice + $extraPrice + $addonTotal;
-
-        $billing->update([
-            'status' => 'completed',
-            'ended_at' => $end,
-            'actual_duration_hours' => $elapsedHours,
-            'base_price' => $basePrice,
-            'extra_price' => $extraPrice,
-            'addon_total' => $addonTotal,
-            'grand_total' => $grandTotal,
-            'ended_by' => auth()->id()
-        ]);
-
-        $this->booking->update(['status' => 'completed']);
-        if ($this->booking->table) {
-            // Billing selesai: lampu mati
-            $this->booking->table->update(['status' => 'available', 'device_status' => false]);
-        }
-
-        $this->isTimeUp = false;
-        $this->showExtendModal = false;
-        $this->booking->refresh();
-        $this->dispatch('notify', message: 'Billing permainan berhasil diselesaikan!', type: 'success');
-    }
-
-    public function extendBilling()
-    {
-        $billing = $this->booking->billing;
-        if (!$billing || !$billing->isActive() || !$billing->scheduled_end_at) return;
-
-        $this->validate([
-            'extendHours' => 'required|numeric|min:0.5'
-        ]);
-
-        $newEnd = $billing->scheduled_end_at->copy()->addMinutes($this->extendHours * 60);
-
-        // Check Conflict
-        $conflict = false;
-        $upcomingBookings = Booking::where('table_id', $this->booking->table_id)
-            ->where('status', 'confirmed')
-            ->where('id', '!=', $this->booking->id)
-            ->whereDate('scheduled_date', '>=', today())
-            ->get();
-
-        foreach($upcomingBookings as $ub) {
-            if (!$ub->scheduled_start) continue;
-            
-            $ubStart = \Carbon\Carbon::parse($ub->scheduled_date->format('Y-m-d') . ' ' . $ub->scheduled_start);
-            if ($newEnd->greaterThan($ubStart)) {
-                $conflict = true;
-                break;
-            }
-        }
-
-        if ($conflict) {
-            $this->dispatch('notify', message: 'Gagal! Ada booking lain yang menempati meja ini di jam tersebut.', type: 'error');
-            return;
-        }
-
-        $billing->update([
-            'scheduled_end_at' => $newEnd
-        ]);
-
-        $this->booking->update([
-            'scheduled_end' => $newEnd->format('H:i:s')
-        ]);
-
-        $this->showExtendModal = false;
-        $this->isTimeUp = false;
-        $this->booking->refresh();
-        $this->dispatch('notify', message: 'Waktu berhasil diperpanjang ' . $this->extendHours . ' jam!', type: 'success');
+        // Polling waktu sekarang hanya dilakukan di view billing.
     }
 
     public function confirmBooking()
@@ -205,7 +81,10 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
 
     public function createBilling()
     {
-        if (!$this->booking->isConfirmed() || $this->booking->billing) return;
+        if (!$this->booking->isConfirmed() || $this->booking->billing()->exists()) {
+            $this->dispatch('notify', message: 'Billing untuk booking ini sudah dibuat.', type: 'error');
+            return;
+        }
 
         $now = now();
         $scheduledEndAt = null;
@@ -242,81 +121,12 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
         $this->dispatch('notify', message: 'Billing berhasil dibuat & permainan dimulai!', type: 'success');
     }
 
-    // --- Addon logic ---
-    public function getAvailableAddonsProperty()
-    {
-        return \App\Models\Addon::where('is_active', true)->get();
-    }
-
-    public function addAddonToBilling($addonId)
-    {
-        $billing = $this->booking->billing;
-        if (!$billing || !$billing->isActive()) return;
-
-        $addon = \App\Models\Addon::find($addonId);
-        if (!$addon) return;
-
-        // Cek apakah addon ini sudah ada di daftar pesanan
-        $existing = \App\Models\BillingAddon::where('billing_id', $billing->id)
-            ->where('addon_id', $addon->id)
-            ->where('status', 'confirmed')
-            ->first();
-
-        if ($existing) {
-            // Tambah kuantitas jika sudah ada
-            $existing->update([
-                'quantity' => $existing->quantity + 1,
-                'subtotal' => $addon->price * ($existing->quantity + 1),
-            ]);
-        } else {
-            // Buat barisan baru
-            \App\Models\BillingAddon::create([
-                'billing_id'        => $billing->id,
-                'addon_id'          => $addon->id,
-                'quantity'          => 1,
-                'unit_price'        => $addon->price,
-                'subtotal'          => $addon->price * 1,
-                'status'            => 'confirmed', // Karena owner/kasir yang add
-                'requested_by'      => auth()->id(),
-                'requested_by_role' => 'kasir',
-                'confirmed_by'      => auth()->id(),
-                'confirmed_at'      => now(),
-            ]);
-        }
-
-        // Update total addon di billing utama
-        $billing->update([
-            'addon_total' => $billing->confirmedAddons()->sum('subtotal')
-        ]);
-
-        $this->booking->refresh();
-        $this->showAddonModal = false;
-        $this->dispatch('notify', message: 'Ditambahkan: 1x ' . $addon->name, type: 'success');
-    }
+    // Addon logic dipindahkan sepenuhnya ke menu detail billing
 };
 ?>
 
 <div wire:poll.10s="checkBillingTime">
-    {{-- Notifikasi Waktu Habis --}}
-    @if($isTimeUp && $booking->billing && $booking->billing->isActive())
-        <div class="alert alert-danger shadow-sm d-flex flex-column flex-md-row align-items-center justify-content-between mb-4 border-danger">
-            <div class="d-flex align-items-center mb-3 mb-md-0">
-                <i class="fa-solid fa-clock fa-2x text-danger me-3 animate__animated animate__pulse animate__infinite"></i>
-                <div>
-                    <strong class="d-block fs-5 text-danger">Waktu Permainan Telah Habis!</strong>
-                    <span>Billing ini telah melewati batas waktu yang dijadwalkan. Jika tidak ada konfirmasi dalam beberapa saat, sistem akan menyelesaikan billing secara otomatis.</span>
-                </div>
-            </div>
-            <div class="d-flex gap-2 flex-shrink-0">
-                <button class="btn btn-outline-danger" wire:click="finishBilling">
-                    <i class="fa-solid fa-stop me-1"></i> Selesaikan Sekarang
-                </button>
-                <button class="btn btn-success fw-bold px-4" @click="$wire.set('showExtendModal', true)">
-                    <i class="fa-solid fa-clock-rotate-left me-1"></i> Perpanjang Waktu
-                </button>
-            </div>
-        </div>
-    @endif
+    {{-- Notifikasi Waktu Habis dipindahkan ke menu Detail Billing --}}
 
     <div class="row">
         {{-- LEFT: Info Booking --}}
@@ -451,7 +261,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
                             <i class="fa-solid fa-check me-1"></i> Konfirmasi Booking
                         </button>
                     </div>
-                @elseif($booking->isConfirmed() && !$booking->billing)
+                @elseif($booking->isConfirmed() && !$booking->billing()->exists())
                     <div class="card-footer d-flex justify-content-end gap-2">
                          <button class="btn btn-primary"
                             @click="
@@ -473,28 +283,9 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
                     </div>
                 @elseif($booking->billing && $booking->billing->isActive())
                     <div class="card-footer d-flex justify-content-end gap-2 bg-light">
-                        @if($booking->billing->scheduled_end_at)
-                            <button class="btn btn-outline-primary" @click="$wire.set('showExtendModal', true)">
-                                <i class="fa-solid fa-clock-rotate-left me-1"></i> Perpanjang Waktu
-                            </button>
-                        @endif
-                        <button class="btn btn-danger"
-                            @click="
-                                Swal.fire({
-                                    title: 'Selesaikan Permainan?',
-                                    text: 'Meja akan dikosongkan dan total tagihan akan dihitung final.',
-                                    icon: 'warning',
-                                    showCancelButton: true,
-                                    confirmButtonColor: '#dc3545',
-                                    cancelButtonColor: '#6c757d',
-                                    confirmButtonText: 'Ya, Selesaikan!',
-                                    cancelButtonText: 'Batal'
-                                }).then((result) => {
-                                    if (result.isConfirmed) $wire.finishBilling()
-                                })
-                            ">
-                            <i class="fa-solid fa-stop me-1"></i> Selesaikan Permainan
-                        </button>
+                        <a href="{{ auth()->user()->hasRole('owner') ? route('owner.billing.show', $booking->billing->id) : route('kasir.billing.show', $booking->billing->id) }}" wire:navigate class="btn btn-info">
+                            <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Kelola di Menu Billing
+                        </a>
                     </div>
                 @endif
             </div>
@@ -599,9 +390,9 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
 
                         @if ($booking->billing->isActive())
                             <div class="mt-3">
-                                <button class="btn btn-outline-primary w-100" @click="$wire.set('showAddonModal', true)">
-                                    <i class="fa-solid fa-plus me-1"></i> Tambah Addon F&B
-                                </button>
+                                <a href="{{ auth()->user()->hasRole('owner') ? route('owner.billing.show', $booking->billing->id) : route('kasir.billing.show', $booking->billing->id) }}" wire:navigate class="btn btn-outline-primary w-100">
+                                    <i class="fa-solid fa-arrow-right me-1"></i> Ke Halaman Kelola Billing
+                                </a>
                             </div>
                         @endif
 
@@ -642,89 +433,6 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
                         <button class="btn btn-danger" wire:click="rejectBooking" wire:loading.attr="disabled">
                             <span wire:loading.remove>Tolak Booking</span>
                             <span wire:loading>Memproses...</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- Modal Tambah Addon --}}
-    @if ($showAddonModal)
-        <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.6);">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
-                <div class="modal-content border-0">
-                    <div class="modal-header bg-light">
-                        <h5 class="modal-title text-primary"><i class="fa-solid fa-boxes-stacked me-2"></i>Katalog F&B (Addon)</h5>
-                        <button type="button" class="btn-close" @click="$wire.set('showAddonModal', false)"></button>
-                    </div>
-                    <div class="modal-body p-4 bg-light bg-opacity-50">
-                        <p class="text-muted mb-4 text-center">Silakan klik ikon produk di bawah ini untuk menambahkannya langsung ke tagihan pelanggan.</p>
-                        <div style="max-height: 400px; overflow-y: auto; overflow-x: hidden;" class="pe-2 pb-2">
-                            <div class="row g-3">
-                                @forelse($this->availableAddons as $ad)
-                                <div class="col-6 col-md-4 col-lg-3">
-                                    <div class="card h-100 border-0 shadow-sm user-select-none text-center"
-                                        style="cursor: pointer; transition: all 0.2s;"
-                                        onmouseover="this.style.transform='scale(1.05)'; this.classList.add('shadow');"
-                                        onmouseout="this.style.transform='scale(1)'; this.classList.remove('shadow');"
-                                        wire:click="addAddonToBilling({{ $ad->id }})">
-                                        
-                                        <div class="card-img-top bg-light ratio ratio-1x1 border-bottom">
-                                            <div style="background-image: url('{{ $ad->image_url }}'); background-size: cover; background-position: center; border-radius: inherit;"></div>
-                                        </div>
-                                        <div class="card-body p-2 d-flex flex-column justify-content-between">
-                                            <div class="fw-semibold text-truncate mb-1" style="font-size: 0.85rem;" title="{{ $ad->name }}">{{ $ad->name }}</div>
-                                            <div class="text-primary fw-bold" style="font-size: 0.9rem;">{{ $ad->formatted_price }}</div>
-                                        </div>
-                                        
-                                        <div class="position-absolute align-items-center justify-content-center bg-white shadow-sm border border-primary rounded-circle" 
-                                             style="top: 5px; right: 5px; width: 26px; height: 26px; display: flex;">
-                                            <i class="fa-solid fa-plus text-primary small"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                                @empty
-                                <div class="col-12 text-center text-muted col-py-5">
-                                    <p>Tidaka ada produk Addon F&B yang aktif.</p>
-                                </div>
-                                @endforelse
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- Modal Perpanjang Waktu --}}
-    @if ($showExtendModal)
-        <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);">
-            <div class="modal-dialog modal-dialog-centered modal-sm">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>Perpanjang Waktu</h5>
-                        <button type="button" class="btn-close" @click="$wire.set('showExtendModal', false)"></button>
-                    </div>
-                    <div class="modal-body py-4">
-                        <label class="form-label text-muted small fw-semibold">Tambahan Durasi (Jam)</label>
-                        <div class="input-group">
-                            <button class="btn btn-outline-secondary" type="button" @click="$wire.set('extendHours', Math.max(0.5, {{ $extendHours }} - 0.5))">
-                                <i class="fa-solid fa-minus"></i>
-                            </button>
-                            <input type="number" class="form-control text-center fw-bold fs-5" wire:model="extendHours" step="0.5" min="0.5" readonly>
-                            <button class="btn btn-outline-secondary" type="button" @click="$wire.set('extendHours', {{ $extendHours }} + 0.5)">
-                                <i class="fa-solid fa-plus"></i>
-                            </button>
-                        </div>
-                        <div class="text-center mt-2 small text-muted">
-                            Jam Berakhir Baru: <br>
-                            <strong class="text-dark">{{ $booking->billing->scheduled_end_at ? $booking->billing->scheduled_end_at->copy()->addMinutes($extendHours * 60)->format('H:i') : '-' }}</strong>
-                        </div>
-                    </div>
-                    <div class="modal-footer justify-content-center border-0 pt-0">
-                        <button class="btn btn-primary w-100 fw-bold" wire:click="extendBilling" wire:loading.attr="disabled">
-                            <i class="fa-solid fa-check me-1"></i> Terapkan Perpanjangan
                         </button>
                     </div>
                 </div>

@@ -14,7 +14,7 @@ class RedirectController extends Controller
         if ($user->hasRole('owner')) return redirect()->route('owner.dashboard');
         if ($user->hasRole('kasir'))      return redirect()->route('kasir.dashboard');
         
-        // Member tidak punya dashboard, langsung arahkan ke riwayat booking
-        return redirect()->route('member.booking.index');
+        // Member tidak punya dashboard, langsung arahkan ke base url
+        return redirect()->route('landing');
     }
 }
