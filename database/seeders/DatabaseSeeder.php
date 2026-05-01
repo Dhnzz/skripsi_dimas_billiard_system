@@ -70,10 +70,15 @@ class DatabaseSeeder extends Seeder
         $table = [
             ['table_number' => 'M1', 'name' => 'Meja 1', 'description' => 'Meja standar di area depan'],
             ['table_number' => 'M2', 'name' => 'Meja 2', 'description' => 'Meja standar di area depan'],
+            ['table_number' => 'M2', 'name' => 'Meja 2', 'description' => 'Meja standar di area depan'],
             ['table_number' => 'M3', 'name' => 'Meja 3', 'description' => 'Meja standar di area tengah'],
             ['table_number' => 'M4', 'name' => 'Meja 4', 'description' => 'Meja standar di area tengah'],
-            ['table_number' => 'M5', 'name' => 'Meja 5', 'description' => 'Meja VIP di area belakang'],
-            ['table_number' => 'M6', 'name' => 'Meja 6', 'description' => 'Meja VIP di area belakang'],
+            ['table_number' => 'M5', 'name' => 'Meja 5', 'description' => 'Meja standar di area tengah'],
+            ['table_number' => 'M6', 'name' => 'Meja 6', 'description' => 'Meja standar di area tengah'],
+            ['table_number' => 'M7', 'name' => 'Meja 7', 'description' => 'Meja standar di area tengah'],
+            ['table_number' => 'M8', 'name' => 'Meja 8', 'description' => 'Meja VIP di area belakang'],
+            ['table_number' => 'M9', 'name' => 'Meja 9', 'description' => 'Meja VIP di area belakang'],
+            ['table_number' => 'M10', 'name' => 'Meja 10', 'description' => 'Meja VIP di area belakang'],
         ];
 
         foreach ($table as $t) {
