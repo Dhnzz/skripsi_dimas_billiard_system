@@ -124,6 +124,12 @@
         </div>
     </div>
 
+    {{-- Monitor Billing untuk Auto-Complete & Notifikasi (Hanya Owner/Kasir) --}}
+    @if(auth()->check() && in_array(auth()->user()->role, ['owner', 'kasir']))
+        @livewire('billing-monitor')
+    @endif
+
+
 
     <!-- Library Bundle Script -->
     <script data-navigate-once src="{{ asset('dashboard_asset/js/core/libs.min.js') }}"></script>

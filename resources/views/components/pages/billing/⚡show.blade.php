@@ -53,7 +53,13 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
     public function checkTime(): void
     {
         if ($this->billing->isActive() && $this->billing->scheduled_end_at) {
+            $wasTimeUp = $this->isTimeUp;
             $this->isTimeUp = now()->greaterThanOrEqualTo($this->billing->scheduled_end_at);
+
+            // Matikan lampu segera jika waktu habis (meskipun belum dibayar)
+            if ($this->isTimeUp && $this->billing->table && $this->billing->table->device_status) {
+                $this->billing->table->update(['device_status' => false]);
+            }
 
             // Auto-finish jika melewati 5 menit grace period
             if (now()->greaterThanOrEqualTo($this->billing->scheduled_end_at->copy()->addMinutes(5))) {

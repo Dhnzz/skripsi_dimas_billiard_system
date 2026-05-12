@@ -171,6 +171,18 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
     {
         $this->resetErrorBag(['package_id', 'pricing_id']);
 
+        if (in_array($this->package_id, ['test_10s', 'test_1', 'test_5', 'test_10'])) {
+            $pkg1h = Package::where('type', 'normal')->where('duration_hours', 1)->first();
+            $this->previewType     = 'test';
+            $this->previewPrice    = $pkg1h ? (float) $pkg1h->price : 0;
+            if ($this->package_id === 'test_10s') {
+                $this->previewDuration = 10 / 3600; // 10 seconds in hours
+            } else {
+                $this->previewDuration = (float) (str_replace('test_', '', $this->package_id) / 60); 
+            }
+            return;
+        }
+
         if (!empty($this->package_id)) {
             $pkg = Package::with('pricing')->find($this->package_id);
             if (!$pkg) return;
@@ -243,12 +255,22 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
         }
 
         $now     = now();
-        $pkg     = !empty($this->package_id) ? Package::with('pricing')->find($this->package_id) : null;
+        $isTest  = in_array($this->package_id, ['test_10s', 'test_1', 'test_5', 'test_10']);
+        $pkgId   = $isTest ? Package::where('type', 'normal')->where('duration_hours', 1)->first()?->id : $this->package_id;
+        
+        $pkg     = !empty($pkgId) ? Package::with('pricing')->find($pkgId) : null;
         $pricing = !empty($this->pricing_id) ? Pricing::find($this->pricing_id) : null;
 
         // Hitung scheduled_end_at (hanya paket normal yang punya batas waktu)
         $scheduledEndAt = null;
-        if ($pkg && $pkg->isNormal()) {
+        if ($isTest) {
+            if ($this->package_id === 'test_10s') {
+                $scheduledEndAt = $now->copy()->addSeconds(10)->addSeconds(3);
+            } else {
+                $mins = (int) str_replace('test_', '', $this->package_id);
+                $scheduledEndAt = $now->copy()->addMinutes($mins)->addSeconds(3);
+            }
+        } elseif ($pkg && $pkg->isNormal()) {
             $scheduledEndAt = $now->copy()->addHours((float) $pkg->duration_hours);
         }
 
@@ -616,6 +638,37 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                             @endforeach
                         </div>
                     @endif
+
+                    {{-- PAKET TESTING (SMENTARA UNTUK PRODUCTION DIHAPUS) --}}
+                    <div class="mt-4 p-3 rounded-3 border" style="border-color: #dc3545 !important; background: #fff5f5;">
+                        <h6 class="text-danger fw-bold mb-3">
+                            <i class="fa-solid fa-flask me-1"></i> Testing Packages (1 Jam Normal Price, +3s End Time)
+                        </h6>
+                        <div class="row g-3">
+                            @foreach(['test_10s' => '10 Detik', 'test_1' => '1 Menit', 'test_5' => '5 Menit', 'test_10' => '10 Menit'] as $tId => $tLabel)
+                                <div class="col-md-6 col-lg-3">
+                                    <div wire:click="$set('package_id', '{{ $tId }}')"
+                                        class="card mb-0 border-2 h-100"
+                                        style="cursor:pointer;transition:all .15s;
+                                            border-color:{{ $package_id == $tId ? '#dc3545' : '#dee2e6' }} !important;
+                                            background:{{ $package_id == $tId ? '#ffe3e3' : '#fff' }};">
+                                        <div class="card-body py-3">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <span class="fw-bold text-danger">{{ $tLabel }}</span>
+                                                @if($package_id == $tId)
+                                                    <span class="badge bg-danger ms-1 flex-shrink-0">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            <div class="small text-muted">+3 detik end time</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    {{-- END TESTING --}}
                 </div>
             </div>
 
@@ -698,16 +751,22 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
             {{-- PREVIEW HARGA --}}
             @if($previewType)
                 <div class="card shadow-sm border-0 mb-4
-                    {{ $previewType === 'normal' ? 'border-primary' : ($previewType === 'loss' ? 'border-warning' : 'border-success') }}"
-                    style="border-left: 4px solid {{ $previewType === 'normal' ? '#0d6efd' : ($previewType === 'loss' ? '#fd7e14' : '#198754') }} !important;">
+                    {{ $previewType === 'normal' || $previewType === 'test' ? 'border-primary' : ($previewType === 'loss' ? 'border-warning' : 'border-success') }}"
+                    style="border-left: 4px solid {{ $previewType === 'normal' || $previewType === 'test' ? '#0d6efd' : ($previewType === 'loss' ? '#fd7e14' : '#198754') }} !important;">
                     <div class="card-body py-3">
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <i class="fa-solid fa-calculator text-primary"></i>
                             <span class="fw-semibold">Estimasi Biaya</span>
                         </div>
-                        @if($previewType === 'normal')
+                        @if($previewType === 'normal' || $previewType === 'test')
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-white small">Paket {{ $previewDuration }} Jam Fix</span>
+                                <span class="text-white small" style="{{ $previewType === 'test' ? 'color:#dc3545!important;font-weight:bold;' : '' }}">
+                                    @if($previewType === 'test')
+                                        TESTING {{ $package_id === 'test_10s' ? '10 Detik' : ($previewDuration * 60) . ' Menit' }} (+3s)
+                                    @else
+                                        Paket {{ $previewDuration }} Jam Fix
+                                    @endif
+                                </span>
                                 <span class="fw-bold text-primary fs-5">
                                     Rp {{ number_format($previewPrice, 0, ',', '.') }}
                                 </span>
@@ -715,7 +774,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
                             <div class="text-white small mt-1">
                                 <i class="fa-solid fa-clock me-1"></i>
                                 Waktu berakhir pukul
-                                <strong>{{ now()->addHours((float) $previewDuration)->format('H:i') }}</strong>
+                                <strong>{{ $previewType === 'test' ? ($package_id === 'test_10s' ? now()->addSeconds(13)->format('H:i:s') : now()->addMinutes($previewDuration * 60)->addSeconds(3)->format('H:i:s')) : now()->addHours((float) $previewDuration)->format('H:i') }}</strong>
                             </div>
                         @elseif($previewType === 'loss')
                             <div class="d-flex justify-content-between align-items-center">
