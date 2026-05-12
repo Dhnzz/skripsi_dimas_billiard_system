@@ -111,7 +111,7 @@ new #[Layout('layouts.member-booking', ['title' => 'Detail Booking & Billing'])]
                     @if(!$booking->billing)
                         <div class="text-center py-5">
                             <i class="fa-solid fa-hourglass-start fa-3x mb-3 text-secondary" style="opacity: 0.5;"></i>
-                            <p class="text-muted mb-0">Billing belum dimulai.</p>
+                            <p class="text-white mb-0">Billing belum dimulai.</p>
                             @if($booking->isConfirmed())
                                 <small class="text-warning">Silakan melapor ke kasir/admin untuk memulai permainan.</small>
                             @endif

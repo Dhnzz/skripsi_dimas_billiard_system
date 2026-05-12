@@ -194,8 +194,7 @@
 
                         @auth
                             @role('member')
-                                <a href="{{ route('member.booking.create') }}"
-                                    class="card-book-btn">
+                                <a href="{{ route('member.booking.create') }}" class="card-book-btn">
                                     + Booking Meja Ini
                                 </a>
                             @endrole

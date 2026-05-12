@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\RedirectController;
-use App\Http\Controllers\DashboardController;
+// use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\Api\TableLightController;
 use Illuminate\Support\Facades\Route;

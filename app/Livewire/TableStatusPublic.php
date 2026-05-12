@@ -22,7 +22,7 @@ class TableStatusPublic extends Component
     {
         // Ambil semua meja aktif beserta billing yang sedang berjalan
         $tables = Table::where('is_active', true)
-            ->orderBy('table_number')
+            ->orderBy('id')
             ->with([
                 // Billing aktif (sudah defined sebagai hasOne scoped di Table model)
                 'activeBilling.package',

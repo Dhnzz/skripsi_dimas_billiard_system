@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Package;
 use App\Models\Table;
+use App\Models\User;
 use Illuminate\View\View;
 
 
@@ -22,12 +23,14 @@ class LandingController extends Controller
         $totalMeja     = Table::where('is_active', true)->count();
         $mejaAvailable = Table::where('is_active', true)->where('status', 'available')->count();
         $mejaOccupied  = Table::where('is_active', true)->where('status', 'occupied')->count();
+        $activeMember = User::role('member')->count();
 
         return view('welcome', compact(
             'packages',
             'totalMeja',
             'mejaAvailable',
             'mejaOccupied',
+            'activeMember',
         ));
     }
 }

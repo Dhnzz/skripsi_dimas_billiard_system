@@ -1152,7 +1152,7 @@
             <div class="stat-label">Sedang Dipakai</div>
         </div>
         <div class="stat-item">
-            <div class="stat-number" style="color: var(--amber)">5K+</div>
+            <div class="stat-number" style="color: var(--amber)">{{ $activeMember }}</div>
             <div class="stat-label">Member Aktif</div>
         </div>
     </div>
