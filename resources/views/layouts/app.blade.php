@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="{{ asset('dashboard_asset/css/rtl.min.css') }}" />
 
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 
 
     {{-- Livewire Styles (WAJIB di <head>) --}}
@@ -39,6 +39,9 @@
 
     <!-- SweetAlert2 -->
     <script data-navigate-once src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    {{-- Vite Assets (For Laravel Echo / Reverb) --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     {{-- Custom CSS tambahan --}}
     @stack('styles')
@@ -162,8 +165,7 @@
     {{-- Custom scripts --}}
     @stack('scripts')
 
-    <!-- Font Awesome Kit -->
-    <script data-navigate-once src="https://kit.fontawesome.com/d989f340c1.js" crossorigin="anonymous"></script>
+    {{-- (Font Awesome JS Kit removed, using purely CSS above to prevent Livewire SPA SVG bug) --}}
 
 
     {{-- Livewire Scripts (WAJIB sebelum </body>) --}}

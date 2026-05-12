@@ -99,7 +99,10 @@ new class extends \Livewire\Component {
         // Update status meja: available & device_status OFF (lampu mati)
         if ($billing->table) {
             $billing->table->update(['status' => 'available', 'device_status' => false]);
+            broadcast(new \App\Events\TableStatusUpdated($billing->table->id));
         }
+
+        broadcast(new \App\Events\BillingUpdated($billing->id));
 
         if ($billing->booking) {
             $billing->booking->update(['status' => 'completed']);

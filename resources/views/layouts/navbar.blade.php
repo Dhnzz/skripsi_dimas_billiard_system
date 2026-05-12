@@ -27,7 +27,16 @@
                 </i>
             </div>
 
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon">
+                    <span class="mt-2 navbar-toggler-bar bar1"></span>
+                    <span class="navbar-toggler-bar bar2"></span>
+                    <span class="navbar-toggler-bar bar3"></span>
+                </span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent" style="visibility: visible !important;">
                 <ul class="mb-2 navbar-nav ms-auto align-items-center navbar-list mb-lg-0">
                     <li class="nav-item dropdown">
                         <a class="py-0 nav-link d-flex align-items-center" href="#" id="navbarDropdown"

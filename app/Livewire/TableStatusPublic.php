@@ -6,14 +6,16 @@ use App\Models\Billing;
 use App\Models\Table;
 use Livewire\Component;
 
+use Livewire\Attributes\On;
+
 class TableStatusPublic extends Component
 {
     /**
-     * Dipanggil otomatis oleh wire:poll setiap 10 detik.
-     * Tidak perlu isi body — Livewire akan re-render
-     * komponen secara otomatis setiap kali method ini dipanggil.
+     * Dipanggil otomatis saat menerima event broadcast dari Laravel Reverb.
      */
-    public function refreshStatus(): void
+    #[On('echo:billiard-updates,TableStatusUpdated')]
+    #[On('echo:billiard-updates,BillingUpdated')]
+    public function refreshStatus($event = null): void
     {
         // Kosong — re-render otomatis terjadi karena method dipanggil
     }

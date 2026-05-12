@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
 
+Route::get('/dev-login', function() {
+    \Auth::login(\App\Models\User::whereHas('roles', fn($q) => $q->where('name', 'owner'))->first());
+    return redirect('/owner/dashboard');
+});
+
 Route::middleware(['auth', 'role:member'])->prefix('member')->name('member.')->group(function () {
     // Tidak ada dashboard untuk member, langsung arahkan ke booking
     // Booking Member

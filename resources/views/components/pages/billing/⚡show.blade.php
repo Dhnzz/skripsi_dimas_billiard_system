@@ -7,6 +7,7 @@ use App\Models\Addon;
 use App\Models\Payment;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
@@ -59,6 +60,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             // Matikan lampu segera jika waktu habis (meskipun belum dibayar)
             if ($this->isTimeUp && $this->billing->table && $this->billing->table->device_status) {
                 $this->billing->table->update(['device_status' => false]);
+                broadcast(new \App\Events\TableStatusUpdated($this->billing->table->id));
             }
 
             // Auto-finish jika melewati 5 menit grace period
@@ -67,6 +69,18 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             }
         } else {
             $this->isTimeUp = false;
+        }
+    }
+
+    // ── REVERB LISTENER ──────────────────────────────────────
+
+    #[On('echo:billiard-updates,BillingUpdated')]
+    public function refreshBilling($event): void
+    {
+        $bId = is_array($event) ? ($event['billingId'] ?? null) : $event;
+        if ($this->billing->id == $bId) {
+            $this->billing->refresh();
+            $this->checkTime(); // Re-evaluate time up status
         }
     }
 
@@ -203,7 +217,12 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
         ]);
 
         // Update status meja: available & device_status OFF (lampu mati)
-        $this->billing->table?->update(['status' => 'available', 'device_status' => false]);
+        if ($this->billing->table) {
+            $this->billing->table->update(['status' => 'available', 'device_status' => false]);
+            broadcast(new \App\Events\TableStatusUpdated($this->billing->table->id));
+        }
+        
+        broadcast(new \App\Events\BillingUpdated($this->billing->id));
 
         // Update status booking jika ada
         if ($this->billing->booking) {

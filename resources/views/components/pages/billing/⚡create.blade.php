@@ -322,6 +322,8 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
 
         // Update status meja: occupied & device_status ON (lampu menyala)
         $table->update(['status' => 'occupied', 'device_status' => true]);
+        
+        broadcast(new \App\Events\TableStatusUpdated($table->id));
 
         $this->dispatch('notify', message: 'Billing walk-in berhasil dibuat! Permainan dimulai.', type: 'success');
 
