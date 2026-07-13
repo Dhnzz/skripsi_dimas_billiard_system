@@ -60,7 +60,11 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             // Matikan lampu segera jika waktu habis (meskipun belum dibayar)
             if ($this->isTimeUp && $this->billing->table && $this->billing->table->device_status) {
                 $this->billing->table->update(['device_status' => false]);
-                broadcast(new \App\Events\TableStatusUpdated($this->billing->table->id));
+                try {
+                    broadcast(new \App\Events\TableStatusUpdated($this->billing->table->id));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
             }
 
             // Auto-finish jika melewati 5 menit grace period
@@ -129,7 +133,7 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
 
     // ── FINISH BILLING ───────────────────────────────────────
 
-    public function finishBilling(bool $auto = false): void
+    public function finishBilling(\App\Services\BillingSessionManager $sessionManager, bool $auto = false): void
     {
         if (!$this->billing->isActive()) return;
 
@@ -158,91 +162,27 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             }
         }
 
-        $pkg     = $this->billing->package;
-        // Fallback: paket normal tidak punya pricing_id langsung di billing,
-        // gunakan pricing dari package untuk extra jam / paket loss
-        $pricing = $this->billing->pricing ?? $pkg?->pricing;
-        $end     = now();
+        try {
+            $amountPaidVal = ($this->paymentMethod === 'cash') ? (float)$this->amountPaid : null;
+            $sessionManager->finish($this->billing, $this->paymentMethod ?: 'cash', $amountPaidVal, $auto);
 
-        // Kunci meteran di scheduled_end_at agar tidak over-charge
-        if ($this->billing->scheduled_end_at && $end->greaterThan($this->billing->scheduled_end_at)) {
-            $end = $this->billing->scheduled_end_at;
+            $this->isTimeUp        = false;
+            $this->showExtendModal = false;
+            $this->showFinishModal = false;
+            $this->billing->refresh();
+
+            $msg = $auto
+                ? 'Waktu lewat 5 menit. Billing otomatis diselesaikan!'
+                : 'Permainan berhasil diselesaikan & pembayaran tercatat!';
+            $this->dispatch('notify', message: $msg, type: $auto ? 'info' : 'success');
+        } catch (\App\Exceptions\DomainException $e) {
+            $this->dispatch('notify', message: $e->getMessage(), type: 'error');
         }
-
-        $elapsedSeconds = $this->billing->started_at->diffInSeconds($end);
-        $elapsedHours   = max(1, (int) floor($elapsedSeconds / 3600));
-        $basePrice      = 0;
-        $extraPrice     = 0;
-
-        if (!$pkg) {
-            $basePrice  = $elapsedHours * (float)($pricing?->price_per_hour ?? 0);
-        } elseif ($pkg->type === 'normal') {
-            $basePrice  = (float) $pkg->price;
-            $extraHrs   = max(0, $elapsedHours - (int) $pkg->duration_hours);
-            $extraPrice = $extraHrs * (float)($pricing?->price_per_hour ?? 0);
-        } else {
-            // loss
-            $basePrice = $elapsedHours * (float)($pricing?->price_per_hour ?? 0);
-        }
-
-        $addonTotal = $this->billing->confirmedAddons()->sum('subtotal');
-        $grandTotal = $basePrice + $extraPrice + $addonTotal;
-
-        $this->billing->update([
-            'status'                => 'completed',
-            'ended_at'              => $end,
-            'actual_duration_hours' => $elapsedHours,
-            'base_price'            => $basePrice,
-            'extra_price'           => $extraPrice,
-            'addon_total'           => $addonTotal,
-            'grand_total'           => $grandTotal,
-            'ended_by'              => auth()->id(),
-        ]);
-
-        // Simpan record pembayaran
-        $amountPaidFinal  = ($this->paymentMethod === 'cash') ? (float) $this->amountPaid : (float) $grandTotal;
-        $changeAmountFinal = ($this->paymentMethod === 'cash') ? max(0, (float) $this->amountPaid - (float) $grandTotal) : 0;
-
-        Payment::create([
-            'billing_id'    => $this->billing->id,
-            'customer_id'   => $this->billing->customer_id,
-            'guest_name'    => $this->billing->guest_name,
-            'amount'        => $grandTotal,
-            'amount_paid'   => $amountPaidFinal,
-            'change_amount' => $changeAmountFinal,
-            'method'        => $auto ? 'cash' : $this->paymentMethod,
-            'status'        => 'paid',
-            'paid_at'       => now(),
-            'processed_by'  => auth()->id(),
-        ]);
-
-        // Update status meja: available & device_status OFF (lampu mati)
-        if ($this->billing->table) {
-            $this->billing->table->update(['status' => 'available', 'device_status' => false]);
-            broadcast(new \App\Events\TableStatusUpdated($this->billing->table->id));
-        }
-        
-        broadcast(new \App\Events\BillingUpdated($this->billing->id));
-
-        // Update status booking jika ada
-        if ($this->billing->booking) {
-            $this->billing->booking->update(['status' => 'completed']);
-        }
-
-        $this->isTimeUp        = false;
-        $this->showExtendModal = false;
-        $this->showFinishModal = false;
-        $this->billing->refresh();
-
-        $msg = $auto
-            ? 'Waktu lewat 5 menit. Billing otomatis diselesaikan!'
-            : 'Permainan berhasil diselesaikan & pembayaran tercatat!';
-        $this->dispatch('notify', message: $msg, type: $auto ? 'info' : 'success');
     }
 
     // ── PERPANJANG WAKTU ─────────────────────────────────────
 
-    public function extendBilling(): void
+    public function extendBilling(\App\Services\BillingSessionManager $sessionManager): void
     {
         if (!$this->billing->isActive() || !$this->billing->scheduled_end_at) return;
 
@@ -252,52 +192,16 @@ new #[Layout('layouts.app', ['title' => 'Detail Billing', 'breadcrumbs' => [
             'extendHours.min'      => 'Minimal perpanjangan 1 jam.',
         ]);
 
-        $newEnd = $this->billing->scheduled_end_at->copy()->addHours((float) $this->extendHours);
+        try {
+            $sessionManager->extend($this->billing, (int)$this->extendHours);
 
-        // Cek konflik booking di meja yang sama
-        if ($this->isWalkIn) {
-            $conflict = Booking::where('table_id', $this->billing->table_id)
-                ->whereIn('status', ['confirmed', 'pending'])
-                ->whereDate('scheduled_date', '>=', today())
-                ->get()
-                ->contains(function ($bk) use ($newEnd) {
-                    if (!$bk->scheduled_start) return false;
-                    $ubStart = \Carbon\Carbon::parse(
-                        $bk->scheduled_date->format('Y-m-d') . ' ' . $bk->scheduled_start
-                    );
-                    return $newEnd->greaterThan($ubStart);
-                });
-        } else {
-            $conflict = Booking::where('table_id', $this->billing->table_id)
-                ->whereIn('status', ['confirmed', 'pending'])
-                ->where('id', '!=', $this->billing->booking_id)
-                ->whereDate('scheduled_date', '>=', today())
-                ->get()
-                ->contains(function ($bk) use ($newEnd) {
-                    if (!$bk->scheduled_start) return false;
-                    $ubStart = \Carbon\Carbon::parse(
-                        $bk->scheduled_date->format('Y-m-d') . ' ' . $bk->scheduled_start
-                    );
-                    return $newEnd->greaterThan($ubStart);
-                });
+            $this->showExtendModal = false;
+            $this->isTimeUp        = false;
+            $this->billing->refresh();
+            $this->dispatch('notify', message: 'Waktu berhasil diperpanjang ' . $this->extendHours . ' jam!', type: 'success');
+        } catch (\App\Exceptions\DomainException $e) {
+            $this->dispatch('notify', message: $e->getMessage(), type: 'error');
         }
-
-        if ($conflict) {
-            $this->dispatch('notify', message: 'Gagal! Ada booking lain yang menempati meja ini di jam tersebut.', type: 'error');
-            return;
-        }
-
-        $this->billing->update(['scheduled_end_at' => $newEnd]);
-
-        // Sinkron ke booking jika ada
-        if ($this->billing->booking) {
-            $this->billing->booking->update(['scheduled_end' => $newEnd->format('H:i:s')]);
-        }
-
-        $this->showExtendModal = false;
-        $this->isTimeUp        = false;
-        $this->billing->refresh();
-        $this->dispatch('notify', message: 'Waktu berhasil diperpanjang ' . $this->extendHours . ' jam!', type: 'success');
     }
 
     // ── TAMBAH ADDON ─────────────────────────────────────────

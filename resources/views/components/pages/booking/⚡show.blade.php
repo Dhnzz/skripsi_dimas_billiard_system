@@ -79,46 +79,18 @@ new #[Layout('layouts.app', ['title' => 'Detail Booking', 'breadcrumbs' => [['ti
         $this->dispatch('notify', message: 'Booking berhasil ditolak.', type: 'success');
     }
 
-    public function createBilling()
+    public function createBilling(\App\Services\BillingSessionManager $sessionManager)
     {
-        if (!$this->booking->isConfirmed() || $this->booking->billing()->exists()) {
-            $this->dispatch('notify', message: 'Billing untuk booking ini sudah dibuat.', type: 'error');
-            return;
+        try {
+            $sessionManager->start([
+                'booking_id' => $this->booking->id,
+            ]);
+
+            $this->booking->refresh();
+            $this->dispatch('notify', message: 'Billing berhasil dibuat & permainan dimulai!', type: 'success');
+        } catch (\App\Exceptions\DomainException $e) {
+            $this->dispatch('notify', message: $e->getMessage(), type: 'error');
         }
-
-        $now = now();
-        $scheduledEndAt = null;
-
-        if ($this->booking->package && $this->booking->package->type === 'normal') {
-            $scheduledEndAt = $now->copy()->addHours((float) $this->booking->package->duration_hours);
-        } else {
-            if ($this->booking->scheduled_end) {
-                // Konversi string "H:i:s" ke waktu dengan aman hari ini
-                $start = \Carbon\Carbon::parse($this->booking->scheduled_start);
-                $end = \Carbon\Carbon::parse($this->booking->scheduled_end);
-                $diffInMinutes = $start->diffInMinutes($end);
-                if ($diffInMinutes < 0) $diffInMinutes += 1440; // Lewati tengah malam
-                $scheduledEndAt = $now->copy()->addMinutes($diffInMinutes);
-            }
-        }
-
-        \App\Models\Billing::create([
-            'billing_code'     => '', // Akan digenerate otomatis di observer
-            'booking_id'       => $this->booking->id,
-            'customer_id'      => $this->booking->customer_id,
-            'table_id'         => $this->booking->table_id,
-            'package_id'       => $this->booking->package_id,
-            'pricing_id'       => $this->booking->pricing_id,
-            'started_at'       => $now,
-            'ended_at'         => $now, // Placeholder, karena ended_at aslinya not nullable di DB
-            'scheduled_end_at' => $scheduledEndAt,
-            'status'           => 'active',
-            'started_by'       => auth()->id(),
-        ]);
-
-        $this->booking->table->update(['status' => 'occupied', 'device_status' => true]);
-        $this->booking->refresh();
-        $this->dispatch('notify', message: 'Billing berhasil dibuat & permainan dimulai!', type: 'success');
     }
 
     // Addon logic dipindahkan sepenuhnya ke menu detail billing

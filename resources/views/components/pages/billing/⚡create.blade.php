@@ -230,7 +230,7 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
 
     // ── SIMPAN BILLING ────────────────────────────────────────
 
-    public function save(): void
+    public function save(\App\Services\BillingSessionManager $sessionManager): void
     {
         $this->validate([
             'guest_name' => 'required|string|min:2|max:100',
@@ -246,91 +246,26 @@ new #[Layout('layouts.app', ['title' => 'Tambah Billing Walk-In', 'breadcrumbs' 
             return;
         }
 
-        // Cek ulang ketersediaan meja (race condition guard)
-        $table = Table::find($this->table_id);
-        if (!$table || $table->status !== 'available') {
-            $this->addError('table_id', 'Meja tidak tersedia lagi. Silakan pilih meja lain.');
-            $this->step = 1;
-            return;
-        }
-
-        $now     = now();
-        $isTest  = in_array($this->package_id, ['test_10s', 'test_1', 'test_5', 'test_10']);
-        $pkgId   = $isTest ? Package::where('type', 'normal')->where('duration_hours', 1)->first()?->id : $this->package_id;
-        
-        $pkg     = !empty($pkgId) ? Package::with('pricing')->find($pkgId) : null;
-        $pricing = !empty($this->pricing_id) ? Pricing::find($this->pricing_id) : null;
-
-        // Hitung scheduled_end_at (hanya paket normal yang punya batas waktu)
-        $scheduledEndAt = null;
-        if ($isTest) {
-            if ($this->package_id === 'test_10s') {
-                $scheduledEndAt = $now->copy()->addSeconds(10)->addSeconds(3);
-            } else {
-                $mins = (int) str_replace('test_', '', $this->package_id);
-                $scheduledEndAt = $now->copy()->addMinutes($mins)->addSeconds(3);
-            }
-        } elseif ($pkg && $pkg->isNormal()) {
-            $scheduledEndAt = $now->copy()->addHours((float) $pkg->duration_hours);
-        }
-
-        // Tentukan pricing_id final yang disimpan
-        $finalPricingId = null;
-        if ($pkg && $pkg->isLoss() && $pkg->pricing_id) {
-            $finalPricingId = $pkg->pricing_id;
-        } elseif (!empty($this->pricing_id)) {
-            $finalPricingId = $this->pricing_id;
-        }
-
-        // Buat Billing
-        $billing = Billing::create([
-            'booking_id'       => null,
-            'customer_id'      => null,
-            'guest_name'       => trim($this->guest_name),
-            'table_id'         => $this->table_id,
-            'package_id'       => $pkg?->id,
-            'pricing_id'       => $finalPricingId,
-            'started_at'       => $now,
-            'ended_at'         => $now,          // Placeholder — kolom not-nullable di DB
-            'scheduled_end_at' => $scheduledEndAt,
-            'status'           => 'active',
-            'started_by'       => auth()->id(),
-            'notes'            => trim($this->notes) ?: null,
-        ]);
-
-        // Simpan addon awal jika ada
-        $addonTotal = 0;
-        foreach ($this->addonSummary as $item) {
-            BillingAddon::create([
-                'billing_id'        => $billing->id,
-                'addon_id'          => $item['id'],
-                'quantity'          => $item['qty'],
-                'unit_price'        => $item['price'],
-                'subtotal'          => $item['subtotal'],
-                'status'            => 'confirmed',
-                'requested_by'      => auth()->id(),
-                'requested_by_role' => 'kasir',
-                'confirmed_by'      => auth()->id(),
-                'confirmed_at'      => now(),
+        try {
+            $sessionManager->start([
+                'guest_name'     => trim($this->guest_name),
+                'table_id'       => $this->table_id,
+                'package_id'     => $this->package_id ?: null,
+                'pricing_id'     => $this->pricing_id ?: null,
+                'notes'          => trim($this->notes) ?: null,
+                'selectedAddons' => $this->addonSummary,
             ]);
-            $addonTotal += $item['subtotal'];
+
+            $this->dispatch('notify', message: 'Billing walk-in berhasil dibuat! Permainan dimulai.', type: 'success');
+
+            $this->redirectRoute(
+                auth()->user()->hasRole('owner') ? 'owner.billing.index' : 'kasir.billing.index',
+                navigate: true
+            );
+        } catch (\App\Exceptions\DomainException $e) {
+            $this->addError('table_id', $e->getMessage());
+            $this->step = 1;
         }
-
-        if ($addonTotal > 0) {
-            $billing->update(['addon_total' => $addonTotal]);
-        }
-
-        // Update status meja: occupied & device_status ON (lampu menyala)
-        $table->update(['status' => 'occupied', 'device_status' => true]);
-        
-        broadcast(new \App\Events\TableStatusUpdated($table->id));
-
-        $this->dispatch('notify', message: 'Billing walk-in berhasil dibuat! Permainan dimulai.', type: 'success');
-
-        $this->redirectRoute(
-            auth()->user()->hasRole('owner') ? 'owner.billing.index' : 'kasir.billing.index',
-            navigate: true
-        );
     }
 };
 ?>
