@@ -14,7 +14,7 @@ class BillingTimeExtension extends Model
         'price_per_hour',
         'total_price',
         'extended_by',
-        'new_scheduled_at'
+        'new_scheduled_end_at'
     ];
 
     protected $casts = [
