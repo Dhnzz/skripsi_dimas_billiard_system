@@ -1,32 +1,35 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <WebSocketsClient.h>
 
-// ==========================================
-// 1. KONFIGURASI JARINGAN & SERVER
-// ==========================================
+// ==============================================================================
+// 1. KONFIGURASI JARINGAN & SERVER (CLOUDFLARE TUNNEL / HOSTING)
+// ==============================================================================
 const char* ssid     = "LPRON";
 const char* password = "LPRON2025";
 
-// Host HTTP API (untuk inisialisasi status awal & fallback)
+// Host domain Cloudflare (Port 443 HTTPS & WSS)
+const char* hostDomain = "billiard-system.azhr.cloud";
+
+// HTTP Endpoint untuk inisialisasi status meja & fallback sync
 const String apiBaseUrl = "https://billiard-system.azhr.cloud/api/microcontroller/tables/light";
 
-// Konfigurasi WebSocket Laravel Reverb / Pusher
-// Sesuaikan dengan host Reverb Anda (misal domain atau IP lokal)
-const char* wsHost     = "billiard-system.azhr.cloud";
-const int   wsPort     = 443;                     // 443 untuk WSS, 8080 untuk WS lokal
-const bool  wsUseSSL   = true;                    // true jika https/wss, false jika ws://
+// Konfigurasi WebSocket Reverb via Cloudflare Tunnel
+const char* wsHost     = hostDomain;
+const int   wsPort     = 443;                     // Port 443 WSS Cloudflare
+const bool  wsUseSSL   = true;                    // Wajib true untuk WSS (port 443)
 const char* reverbKey  = "dqnufgh3eq1paxqb9asb";  // REVERB_APP_KEY dari file .env
 
-// Channel yang didengarkan
+// Channel Laravel Reverb
 const char* targetChannel = "billiard-updates";
 
-// ==========================================
-// 2. HARDWARE & PIN
-// ==========================================
+// ==============================================================================
+// 2. HARDWARE, PIN & RELAY LOGIC
+// ==============================================================================
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Relay Pin (Indeks 0 = Meja 1, Indeks 9 = Meja 10)
@@ -34,19 +37,23 @@ const int ledPins[]   = {27, 26, 25, 19, 18, 5, 17, 16, 4, 15};
 const int buzzer      = 13;
 const int totalTables = 10;
 
-// Status lampu lokal [0..9]
+// Set false jika relay Anda tipe Active LOW (kebanyakan relay module 5V)
+// Set true jika relay Anda tipe Active HIGH
+const bool RELAY_ACTIVE_HIGH = true;
+
+// Status lampu lokal tiap meja [0..9]
 bool tableLights[totalTables] = {false};
 
-// ==========================================
+// ==============================================================================
 // 3. OBJECT & TIMER
-// ==========================================
+// ==============================================================================
 WebSocketsClient webSocket;
 unsigned long lastHeartbeat = 0;
-const unsigned long heartbeatInterval = 60000; // Sinkronisasi ulang HTTP setiap 60 detik (fallback)
+const unsigned long heartbeatInterval = 60000; // Sinkronisasi ulang HTTP tiap 60 detik (fallback)
 
-// ==========================================
+// ==============================================================================
 // PROTOTYPE FUNCTION
-// ==========================================
+// ==============================================================================
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
 void handleWebSocketMessage(const String& message);
 void fetchInitialTableStatus();
@@ -54,9 +61,9 @@ void updateRelay(int tableId, bool lightOn);
 void updateLcdRow();
 void alarm();
 
-// ==========================================
+// ==============================================================================
 // SETUP
-// ==========================================
+// ==============================================================================
 void setup() {
   Serial.begin(115200);
 
@@ -64,13 +71,13 @@ void setup() {
   lcd.backlight();
   pinMode(buzzer, OUTPUT);
 
-  // Inisialisasi Pin Relay
+  // Inisialisasi Pin Relay (Kondisi Awal: Mati)
   for (int i = 0; i < totalTables; i++) {
     pinMode(ledPins[i], OUTPUT);
-    digitalWrite(ledPins[i], LOW);
+    digitalWrite(ledPins[i], RELAY_ACTIVE_HIGH ? LOW : HIGH);
   }
 
-  // Koneksi WiFi
+  // 1. Koneksi WiFi
   WiFi.begin(ssid, password);
   lcd.setCursor(0, 0); lcd.print("MENCARI KONEKSI");
   lcd.setCursor(0, 1); lcd.print("     WIFI !");
@@ -81,20 +88,23 @@ void setup() {
     Serial.print(".");
   }
 
-  Serial.println("\nWiFi Terkoneksi!");
+  Serial.println("\n[WIFI] Terkoneksi!");
+  Serial.printf("[WIFI] IP Address: %s\n", WiFi.localIP().toString().c_str());
+
   lcd.clear();
   lcd.setCursor(0, 0); lcd.print("WIFI TERKONEKSI");
   lcd.setCursor(0, 1); lcd.print(WiFi.localIP().toString());
   delay(1500);
 
-  // 1. Ambil status awal semua meja via 1 HTTP request
+  // 2. Ambil status awal semua meja via HTTPS (1x call)
   fetchInitialTableStatus();
 
-  // 2. Hubungkan ke WebSocket Laravel Reverb
+  // 3. Konfigurasi WebSocket Reverb via Cloudflare (WSS)
   String wsUrl = "/app/" + String(reverbKey) + "?protocol=7&client=js&version=8.4.0&flash=false";
-  
+
   if (wsUseSSL) {
-    webSocket.beginSSL(wsHost, wsPort, wsUrl.c_str());
+    // beginSSL tanpa fingerprint (lewati validasi CA agar cocok dengan Cloudflare edge cert)
+    webSocket.beginSSL(wsHost, wsPort, wsUrl.c_str(), "");
   } else {
     webSocket.begin(wsHost, wsPort, wsUrl.c_str());
   }
@@ -107,32 +117,34 @@ void setup() {
   lcd.setCursor(0, 0); lcd.print("WS CONNECTING...");
 }
 
-// ==========================================
-// LOOP
-// ==========================================
+// ==============================================================================
+// MAIN LOOP
+// ==============================================================================
 void loop() {
   webSocket.loop();
 
-  // Fallback sync: polling berkala setiap 60 detik jika ada event terlewat
+  // Fallback sync: cek status HTTP setiap 60 detik jika ada paket WS terlewat
   if (millis() - lastHeartbeat > heartbeatInterval) {
     fetchInitialTableStatus();
     lastHeartbeat = millis();
   }
 }
 
-// ==========================================
-// WEBSOCKET EVENT HANDLER
-// ==========================================
+// ==============================================================================
+// WEBSOCKET EVENT LISTENER
+// ==============================================================================
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
   switch (type) {
     case WStype_DISCONNECTED:
-      Serial.println("[WS] Disconnected!");
+      Serial.println("[WS] Terputus dari Reverb Server!");
       lcd.setCursor(0, 0); lcd.print("WS: DISCONNECTED");
       break;
 
     case WStype_CONNECTED:
-      Serial.println("[WS] Connected to Server!");
+      Serial.println("[WS] Berhasil terkoneksi ke Server Reverb!");
       lcd.setCursor(0, 0); lcd.print("WS: TERHUBUNG   ");
+      // Sync status ulang saat reconnect
+      fetchInitialTableStatus();
       break;
 
     case WStype_TEXT: {
@@ -150,9 +162,9 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
   }
 }
 
-// ==========================================
+// ==============================================================================
 // PUSHER / REVERB PROTOCOL PARSER
-// ==========================================
+// ==============================================================================
 void handleWebSocketMessage(const String& message) {
   StaticJsonDocument<1024> doc;
   DeserializationError err = deserializeJson(doc, message);
@@ -163,9 +175,9 @@ void handleWebSocketMessage(const String& message) {
 
   const char* eventName = doc["event"] | "";
 
-  // 1. Handshake Pusher Connection Established -> Subscribe channel
+  // 1. Handshake Pusher: Connection Established -> Langganan Channel
   if (strcmp(eventName, "pusher:connection_established") == 0) {
-    Serial.println("[WS] Connection established. Subscribing to channel...");
+    Serial.println("[WS] Handshake OK. Berlangganan ke channel billiard-updates...");
 
     StaticJsonDocument<256> subDoc;
     subDoc["event"] = "pusher:subscribe";
@@ -178,15 +190,15 @@ void handleWebSocketMessage(const String& message) {
     return;
   }
 
-  // 2. Ping dari Server Reverb -> Balas Pong
+  // 2. Reverb Heartbeat Ping -> Balas Pong
   if (strcmp(eventName, "pusher:ping") == 0) {
     webSocket.sendTXT("{\"event\":\"pusher:pong\",\"data\":{}}");
     return;
   }
 
-  // 3. Konfirmasi langganan sukses
+  // 3. Konfirmasi Langganan Channel Sukses
   if (strcmp(eventName, "pusher_internal:subscription_succeeded") == 0) {
-    Serial.printf("[WS] Subscribed to channel: %s\n", targetChannel);
+    Serial.printf("[WS] Sukses langganan channel: %s\n", targetChannel);
     lcd.setCursor(0, 0); lcd.print("READY BILLIARD  ");
     updateLcdRow();
     return;
@@ -194,36 +206,45 @@ void handleWebSocketMessage(const String& message) {
 
   // 4. Event TableStatusUpdated (Lampu meja ON/OFF realtime)
   if (strstr(eventName, "TableStatusUpdated") != NULL) {
-    // Di protokol Pusher, field `data` bisa berupa JSON string atau object
     int tableId = 0;
     bool lightOn = false;
 
-    if (doc["data"].is<const char*>()) {
+    const char* dataRaw = doc["data"].as<const char*>();
+
+    // Pusher mengirimkan field `data` sebagai JSON string
+    if (dataRaw != NULL && dataRaw[0] == '{') {
       StaticJsonDocument<512> dataDoc;
-      deserializeJson(dataDoc, doc["data"].as<const char*>());
+      deserializeJson(dataDoc, dataRaw);
       tableId = dataDoc["table_id"] | dataDoc["tableId"] | 0;
       lightOn = dataDoc["light_on"] | dataDoc["device_status"] | false;
-    } else {
+    } else if (doc["data"].is<JsonObject>()) {
       tableId = doc["data"]["table_id"] | doc["data"]["tableId"] | 0;
       lightOn = doc["data"]["light_on"] | doc["data"]["device_status"] | false;
     }
 
     if (tableId >= 1 && tableId <= totalTables) {
-      Serial.printf("[WS EVENT] Table %d Light: %s\n", tableId, lightOn ? "ON" : "OFF");
+      Serial.printf("[WS EVENT] Meja %d -> Lampu %s\n", tableId, lightOn ? "MENYALA" : "PADAM");
       updateRelay(tableId, lightOn);
-      alarm(); // Bunyikan buzzer singkat saat ada update status
+      alarm(); // Notifikasi buzzer singkat
     }
   }
 }
 
-// ==========================================
-// HTTP FALLBACK / STATUS AWAL
-// ==========================================
+// ==============================================================================
+// HTTPS FALLBACK / AMBIL STATUS AWAL
+// ==============================================================================
 void fetchInitialTableStatus() {
   if (WiFi.status() != WL_CONNECTED) return;
 
+  WiFiClientSecure client;
+  client.setInsecure(); // Bypass CA root cert validation di ESP32
+
   HTTPClient http;
-  http.begin(apiBaseUrl);
+  if (!http.begin(client, apiBaseUrl)) {
+    Serial.println("[HTTP] Inisialisasi HTTPClient gagal.");
+    return;
+  }
+
   int httpCode = http.GET();
 
   if (httpCode == 200) {
@@ -240,21 +261,29 @@ void fetchInitialTableStatus() {
           updateRelay(id, lightOn);
         }
       }
-      Serial.println("[HTTP] Status awal semua meja berhasil disinkronkan.");
+      Serial.println("[HTTP] Status awal semua meja tersinkronisasi.");
     }
   } else {
-    Serial.printf("[HTTP] Gagal mengambil status meja. Kode: %d\n", httpCode);
+    Serial.printf("[HTTP] Gagal mengambil data meja. HTTP Code: %d\n", httpCode);
   }
+
   http.end();
 }
 
-// ==========================================
+// ==============================================================================
 // KONTROL RELAY & LCD
-// ==========================================
+// ==============================================================================
 void updateRelay(int tableId, bool lightOn) {
   int index = tableId - 1;
   tableLights[index] = lightOn;
-  digitalWrite(ledPins[index], lightOn ? HIGH : LOW);
+
+  // Sesuaikan Active High / Active Low
+  if (RELAY_ACTIVE_HIGH) {
+    digitalWrite(ledPins[index], lightOn ? HIGH : LOW);
+  } else {
+    digitalWrite(ledPins[index], lightOn ? LOW : HIGH);
+  }
+
   updateLcdRow();
 }
 
