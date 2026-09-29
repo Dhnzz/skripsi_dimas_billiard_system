@@ -249,6 +249,16 @@ class BillingSessionManager
                 'new_scheduled_end_at' => $newEnd,
             ]);
 
+            // Turn table lamp back on if it was off due to time expired
+            if (!$table->device_status) {
+                $table->update(['device_status' => true]);
+                try {
+                    broadcast(new \App\Events\TableStatusUpdated($table->id));
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+
             // Broadcast updates
             try {
                 broadcast(new \App\Events\BillingUpdated($billing->id));

@@ -127,8 +127,8 @@
         </div>
     </div>
 
-    {{-- Monitor Billing untuk Auto-Complete & Notifikasi (Hanya Owner/Kasir) --}}
-    @if(auth()->check() && in_array(auth()->user()->role, ['owner', 'kasir']))
+    {{-- Monitor Billing untuk Notifikasi (Hanya Owner/Kasir) --}}
+    @if(auth()->check() && auth()->user()->hasAnyRole(['owner', 'kasir']))
         @livewire('billing-monitor')
     @endif
 
