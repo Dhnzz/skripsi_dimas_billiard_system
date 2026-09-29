@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('billing_id')->constrained();
             $table->decimal('added_hours', 4, 2);
-            $table->decimal('price_per_hour', 4, 2);
-            $table->decimal('total_price', 4, 2);
+            $table->decimal('price_per_hour', 10, 2);
+            $table->decimal('total_price', 10, 2);
             $table->foreignId('extended_by')->constrained('users');
             $table->timestamp('new_scheduled_end_at');
             $table->timestamps();
