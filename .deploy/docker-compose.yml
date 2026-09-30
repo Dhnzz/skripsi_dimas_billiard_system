@@ -68,6 +68,22 @@ services:
     networks:
       - app
 
+  reverb:
+    build:
+      context: .docker/php
+      dockerfile: Dockerfile
+    container_name: billiard-reverb
+    restart: unless-stopped
+    env_file:
+      - /root/skripsi_dimas_billiard_system/.env
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - ../:/var/www
+    depends_on:
+      - php
+    networks:
+      - app
+
   nginx:
     image: nginx:alpine
     container_name: billiard-nginx
