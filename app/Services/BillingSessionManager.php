@@ -10,12 +10,18 @@ use App\Models\Package;
 use App\Models\Pricing;
 use App\Models\Table;
 use App\Exceptions\DomainException;
+use App\Services\TablePowerController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class BillingSessionManager
 {
+    public function __construct(
+        protected ?TablePowerController $tablePower = null
+    ) {
+        $this->tablePower = $this->tablePower ?? app(TablePowerController::class);
+    }
     /**
      * Start a new billiard billing session.
      *
@@ -164,14 +170,8 @@ class BillingSessionManager
                 $billing->update(['addon_total' => $addonTotal]);
             }
 
-            $table->update(['status' => 'occupied', 'device_status' => true]);
-            
-            // Broadcast table status updated
-            try {
-                broadcast(new \App\Events\TableStatusUpdated($table->id));
-            } catch (\Throwable $e) {
-                report($e);
-            }
+            $table->update(['status' => 'occupied']);
+            $this->tablePower->turnOn($table, 'billing_started');
 
             return $billing;
         });
@@ -251,12 +251,7 @@ class BillingSessionManager
 
             // Turn table lamp back on if it was off due to time expired
             if (!$table->device_status) {
-                $table->update(['device_status' => true]);
-                try {
-                    broadcast(new \App\Events\TableStatusUpdated($table->id));
-                } catch (\Throwable $e) {
-                    report($e);
-                }
+                $this->tablePower->turnOn($table, 'billing_extended');
             }
 
             // Broadcast updates
@@ -356,12 +351,8 @@ class BillingSessionManager
             // Release table
             $table = Table::where('id', $billing->table_id)->lockForUpdate()->first();
             if ($table) {
-                $table->update(['status' => 'available', 'device_status' => false]);
-                try {
-                    broadcast(new \App\Events\TableStatusUpdated($table->id));
-                } catch (\Throwable $e) {
-                    report($e);
-                }
+                $table->update(['status' => 'available']);
+                $this->tablePower->turnOff($table, 'billing_finished');
             }
 
             // Complete booking if associated
@@ -375,5 +366,41 @@ class BillingSessionManager
                 report($e);
             }
         });
+    }
+
+    /**
+     * Matikan lampu meja untuk semua sesi sewa yang telah melewati batas waktu sewa.
+     * Mengembalikan daftar billing yang diproses.
+     *
+     * @return \Illuminate\Support\Collection<int, Billing>
+     */
+    public function expireOverdueSessions(): \Illuminate\Support\Collection
+    {
+        $overdueBillings = Billing::query()
+            ->where('status', 'active')
+            ->whereNotNull('scheduled_end_at')
+            ->where('scheduled_end_at', '<=', now())
+            ->whereHas('table', fn ($q) => $q->where('device_status', true))
+            ->with('table')
+            ->get();
+
+        if ($overdueBillings->isEmpty()) {
+            return collect();
+        }
+
+        foreach ($overdueBillings as $billing) {
+            DB::transaction(function () use ($billing) {
+                $this->tablePower->turnOff($billing->table, 'billing_expired');
+            });
+
+            try {
+                broadcast(new \App\Events\BillingUpdated($billing->id));
+                broadcast(new \App\Events\BillingTimeExpired($billing));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $overdueBillings;
     }
 }
