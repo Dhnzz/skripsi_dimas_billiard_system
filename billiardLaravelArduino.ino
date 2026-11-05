@@ -8,11 +8,11 @@
 // ==============================================================================
 // 1. KONFIGURASI WIFI & SERVER
 // ==============================================================================
-const char* ssid     = "LPRON";
-const char* password = "LPRON2025";
+const char* ssid     = "LPRON";       // Ganti dengan SSID WiFi yang digunakan
+const char* password = "LPRON2025";   // Ganti dengan Password WiFi
 
 // Mode Polling:
-// true  = BATCH POLLING (1x request untuk 10 meja, cepat & hemat bandwidth)
+// true  = BATCH POLLING (1x request untuk 10 meja, cepat, hemat memori & stabil)
 // false = INDIVIDUAL TABLE POLLING (1 per 1 ke /api/microcontroller/table/{id}/light)
 const bool USE_BATCH_POLLING = true;
 
@@ -67,33 +67,45 @@ void setup() {
   }
 
   // Koneksi WiFi
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   lcd.setCursor(0, 0); lcd.print("MENCARI KONEKSI");
   lcd.setCursor(0, 1); lcd.print("     WIFI !");
 
-  while (WiFi.status() != WL_CONNECTED) {
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED && retries < 30) {
     alarm();
     delay(500);
     Serial.print(".");
+    retries++;
   }
 
-  Serial.println("\n[WIFI] Terkoneksi!");
-  Serial.printf("[WIFI] IP: %s\n", WiFi.localIP().toString().c_str());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n[WIFI] Terkoneksi!");
+    Serial.printf("[WIFI] IP: %s\n", WiFi.localIP().toString().c_str());
 
-  lcd.clear();
-  lcd.setCursor(0, 0); lcd.print("WIFI TERKONEKSI");
-  lcd.setCursor(0, 1); lcd.print(WiFi.localIP().toString());
-  delay(1500);
+    lcd.clear();
+    lcd.setCursor(0, 0); lcd.print("WIFI TERKONEKSI");
+    lcd.setCursor(0, 1); lcd.print(WiFi.localIP().toString());
+    delay(1500);
+  } else {
+    Serial.printf("\n[WIFI ERROR] Status Code: %d\n", WiFi.status());
+    lcd.clear();
+    lcd.setCursor(0, 0); lcd.print("WIFI GAGAL!");
+    delay(1500);
+  }
 
   lcd.clear();
   lcd.setCursor(0, 0); lcd.print("BILLIARD READY  ");
   updateLcd();
 
   // Sinkronisasi awal langsung saat boot
-  if (USE_BATCH_POLLING) {
-    checkBatchTables();
-  } else {
-    checkIndividualTables();
+  if (WiFi.status() == WL_CONNECTED) {
+    if (USE_BATCH_POLLING) {
+      checkBatchTables();
+    } else {
+      checkIndividualTables();
+    }
   }
 }
 
