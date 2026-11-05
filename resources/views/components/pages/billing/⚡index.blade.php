@@ -6,7 +6,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-new class extends Component {
+new #[Layout('layouts.app', ['title' => 'Manajemen Billing', 'breadcrumbs' => [['title' => 'Monitoring'], ['title' => 'Billing', 'url' => '#']]])] class extends Component {
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
