@@ -63,6 +63,12 @@ class LoginAndDashboardTest extends TestCase
             'password' => 'password123',
         ]);
 
+        dump([
+            'status' => $response->status(),
+            'session_errors' => session('errors') ? session('errors')->all() : null,
+            'location' => $response->headers->get('Location'),
+        ]);
+
         $this->assertAuthenticatedAs($this->owner);
         $response->assertRedirect(route('owner.dashboard'));
     }
