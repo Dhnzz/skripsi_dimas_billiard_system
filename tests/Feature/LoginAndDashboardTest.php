@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Models\Table;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class LoginAndDashboardTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected ?User $owner = null;
     protected ?User $kasir = null;
     protected ?User $member = null;
@@ -16,32 +19,27 @@ class LoginAndDashboardTest extends TestCase
     {
         parent::setUp();
 
-        $this->owner = User::role('owner')->first();
-        if (!$this->owner) {
-            $this->owner = User::factory()->create([
-                'email' => 'test.owner@swiss.id',
-                'password' => bcrypt('password123'),
-            ]);
-            $this->owner->assignRole('owner');
-        }
+        Role::findOrCreate('owner');
+        Role::findOrCreate('kasir');
+        Role::findOrCreate('member');
 
-        $this->kasir = User::role('kasir')->first();
-        if (!$this->kasir) {
-            $this->kasir = User::factory()->create([
-                'email' => 'test.kasir@swiss.id',
-                'password' => bcrypt('password123'),
-            ]);
-            $this->kasir->assignRole('kasir');
-        }
+        $this->owner = User::factory()->create([
+            'email' => 'owner@test.id',
+            'password' => bcrypt('password123'),
+        ]);
+        $this->owner->assignRole('owner');
 
-        $this->member = User::role('member')->first();
-        if (!$this->member) {
-            $this->member = User::factory()->create([
-                'email' => 'test.member@swiss.id',
-                'password' => bcrypt('password123'),
-            ]);
-            $this->member->assignRole('member');
-        }
+        $this->kasir = User::factory()->create([
+            'email' => 'kasir@test.id',
+            'password' => bcrypt('password123'),
+        ]);
+        $this->kasir->assignRole('kasir');
+
+        $this->member = User::factory()->create([
+            'email' => 'member@test.id',
+            'password' => bcrypt('password123'),
+        ]);
+        $this->member->assignRole('member');
     }
 
     /**
@@ -62,7 +60,7 @@ class LoginAndDashboardTest extends TestCase
     {
         $response = $this->post('/login', [
             'email' => $this->owner->email,
-            'password' => 'owner123',
+            'password' => 'password123',
         ]);
 
         $this->assertAuthenticatedAs($this->owner);
@@ -76,7 +74,7 @@ class LoginAndDashboardTest extends TestCase
     {
         $response = $this->post('/login', [
             'email' => $this->kasir->email,
-            'password' => 'kasir123',
+            'password' => 'password123',
         ]);
 
         $this->assertAuthenticatedAs($this->kasir);
@@ -84,7 +82,21 @@ class LoginAndDashboardTest extends TestCase
     }
 
     /**
-     * Test invalid login credentials keeps user as guest and returns error.
+     * Test member login redirects directly to member booking index.
+     */
+    public function test_member_login_redirects_to_member_booking_page(): void
+    {
+        $response = $this->post('/login', [
+            'email' => $this->member->email,
+            'password' => 'password123',
+        ]);
+
+        $this->assertAuthenticatedAs($this->member);
+        $response->assertRedirect(route('member.booking.index'));
+    }
+
+    /**
+     * Test invalid login credentials keeps user as guest and returns validation error.
      */
     public function test_invalid_login_credentials_returns_error(): void
     {
