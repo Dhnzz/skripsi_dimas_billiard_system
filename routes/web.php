@@ -95,7 +95,10 @@ Route::middleware(['auth', 'role:owner'])->prefix('owner')->name('owner.')->grou
 // });
 
 require __DIR__ . '/auth.php';
-Route::get('/redirect', RedirectController::class)
+Route::match(['get', 'post'], '/dashboard', RedirectController::class)
+    ->middleware('auth')->name('dashboard');
+
+Route::match(['get', 'post'], '/redirect', RedirectController::class)
     ->middleware('auth')->name('redirect');
 
 // ── API untuk Microcontroller (Lampu Meja) ──────────────────────────────────

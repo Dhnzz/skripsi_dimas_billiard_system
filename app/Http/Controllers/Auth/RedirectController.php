@@ -11,10 +11,11 @@ class RedirectController extends Controller
     public function __invoke(Request $request)
     {
         $user = Auth::user();
+        if (!$user) return redirect()->route('login');
         if ($user->hasRole('owner')) return redirect()->route('owner.dashboard');
-        if ($user->hasRole('kasir'))      return redirect()->route('kasir.dashboard');
+        if ($user->hasRole('kasir')) return redirect()->route('kasir.dashboard');
+        if ($user->hasRole('member')) return redirect()->route('member.booking.index');
         
-        // Member tidak punya dashboard, langsung arahkan ke base url
         return redirect()->route('landing');
     }
 }

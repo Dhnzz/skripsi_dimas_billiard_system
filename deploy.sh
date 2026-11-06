@@ -35,12 +35,12 @@ case "$1" in
             error "Tentukan perintah artisan. Contoh: ./deploy.sh --artisan migrate:status"
         fi
         info "Running 'php artisan $CMD' on server..."
-        ssh "$SERVER_HOST" "docker exec billiard-php php artisan $CMD"
+        ssh "$SERVER_HOST" "docker exec -u www-data billiard-php php artisan $CMD"
         exit 0
         ;;
     --migrate|-m)
         info "Running migrations on server..."
-        ssh "$SERVER_HOST" "docker exec billiard-php php artisan migrate --force"
+        ssh "$SERVER_HOST" "docker exec -u www-data billiard-php php artisan migrate --force"
         success "Migration completed."
         exit 0
         ;;
@@ -79,6 +79,6 @@ git push server "$CURRENT_BRANCH"
 
 # 4. Trigger reload & cache clear di server
 info "3/3 Optimizing cache & restarting workers on server..."
-ssh "$SERVER_HOST" "sudo chown -R admin:www-data /var/www/billiard-system/storage /var/www/billiard-system/bootstrap/cache && sudo chmod -R 775 /var/www/billiard-system/storage /var/www/billiard-system/bootstrap/cache && docker exec -u www-data billiard-php php artisan optimize:clear && docker restart billiard-queue billiard-reverb >/dev/null 2>&1"
+ssh "$SERVER_HOST" "sudo chown -R www-data:www-data /var/www/billiard-system/storage /var/www/billiard-system/bootstrap/cache && sudo chmod -R 777 /var/www/billiard-system/storage /var/www/billiard-system/bootstrap/cache && docker exec -u www-data billiard-php php artisan optimize:clear && docker restart billiard-queue billiard-reverb >/dev/null 2>&1"
 
 success "Deployment selesai! Aplikasi berjalan di https://billiard-system.azhr.cloud"
