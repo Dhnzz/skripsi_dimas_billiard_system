@@ -19,6 +19,8 @@ class LoginAndDashboardTest extends TestCase
     {
         parent::setUp();
 
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+
         Role::findOrCreate('owner');
         Role::findOrCreate('kasir');
         Role::findOrCreate('member');
@@ -61,12 +63,6 @@ class LoginAndDashboardTest extends TestCase
         $response = $this->post('/login', [
             'email' => $this->owner->email,
             'password' => 'password123',
-        ]);
-
-        dump([
-            'status' => $response->status(),
-            'session_errors' => session('errors') ? session('errors')->all() : null,
-            'location' => $response->headers->get('Location'),
         ]);
 
         $this->assertAuthenticatedAs($this->owner);

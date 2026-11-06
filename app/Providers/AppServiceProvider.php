@@ -31,12 +31,22 @@ class AppServiceProvider extends ServiceProvider
         }
         @chmod($livewireCache, 0777);
 
-        foreach (['classes', 'views', 'scripts', 'styles', 'placeholders'] as $sub) {
+        $subdirs = ['classes', 'views', 'scripts', 'styles', 'placeholders'];
+        foreach ($subdirs as $sub) {
             $dir = $livewireCache . DIRECTORY_SEPARATOR . $sub;
             if (!is_dir($dir)) {
                 @mkdir($dir, 0777, true);
             }
-            if (is_dir($dir) && !is_writable($dir)) {
+            @chmod($dir, 0777);
+        }
+
+        if (function_exists('posix_getuid') && posix_getuid() === 0) {
+            @chown($livewireCache, 'www-data');
+            @chgrp($livewireCache, 'www-data');
+            foreach ($subdirs as $sub) {
+                $dir = $livewireCache . DIRECTORY_SEPARATOR . $sub;
+                @chown($dir, 'www-data');
+                @chgrp($dir, 'www-data');
                 @chmod($dir, 0777);
             }
         }
